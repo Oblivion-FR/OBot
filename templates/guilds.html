@@ -1,0 +1,14 @@
+{% extends "base.html" %}
+{% block header %}{% include "user_header.html" %}{% endblock %}
+{% block content %}
+<h1>Your servers</h1>
+<section>
+  <ul class="list">
+    {% for guild in guilds %}
+    <li><a href="/guilds/{{ guild.id }}">{{ guild.name }}</a></li>
+    {% else %}
+    <li class="empty">No server where you can manage the bot.</li>
+    {% endfor %}
+  </ul>
+</section>
+{% endblock %}

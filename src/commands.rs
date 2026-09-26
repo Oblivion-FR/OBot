@@ -1,6 +1,8 @@
 use poise::serenity_prelude as serenity;
+use std::collections::BTreeSet;
 
-use crate::hypixel::{self, LinkedDiscord};
+use crate::config::{self, RuleKind};
+use crate::hypixel::{self, GuildQuery};
 use crate::{Context, Error};
 
 /// Check that the bot is alive
@@ -16,7 +18,15 @@ fn is_same_user(user: &serenity::User, linked: &str) -> bool {
     linked.eq_ignore_ascii_case(&user.name) || linked.eq_ignore_ascii_case(&user.tag())
 }
 
-/// Get the verified role by proving you own a Minecraft account
+fn mention_roles(roles: &BTreeSet<serenity::RoleId>) -> String {
+    roles
+        .iter()
+        .map(|role| format!("<@&{role}>"))
+        .collect::<Vec<_>>()
+        .join(", ")
+}
+
+/// Get your roles by proving you own a Minecraft account
 #[poise::command(slash_command, guild_only, ephemeral)]
 pub async fn verify(
     ctx: Context<'_>,
@@ -29,39 +39,109 @@ pub async fn verify(
     let guild_id = ctx.guild_id().ok_or("verify is guild only")?;
     let author = ctx.author();
 
+    let config = config::get_config(&data.db, guild_id).await?;
+    let Some(verified_role_id) = config.verified_role_id else {
+        ctx.say("Verification is not set up on this server yet, ask an admin to configure it in the panel.")
+            .await?;
+        return Ok(());
+    };
+
     let Some(profile) = hypixel::fetch_mojang_profile(&data.http, &pseudo).await? else {
         ctx.say(format!("No Minecraft account is named `{pseudo}`."))
             .await?;
         return Ok(());
     };
 
-    let linked =
-        hypixel::fetch_linked_discord(&data.http, &data.hypixel_api_key, &profile.id).await?;
-    let message = match linked {
-        LinkedDiscord::UnknownPlayer => {
-            format!("`{}` has never joined Hypixel.", profile.name)
-        }
-        LinkedDiscord::NotLinked => format!(
-            "`{}` has no Discord linked on Hypixel. In game, open your profile \
-             → Social Media → Discord and enter `{}`, then try again.",
-            profile.name, author.name
-        ),
-        LinkedDiscord::Linked(discord) if !is_same_user(author, &discord) => format!(
-            "`{}` is linked to the Discord `{discord}`, not to you (`{}`).",
-            profile.name, author.name
-        ),
-        LinkedDiscord::Linked(_) => {
-            let reason = format!("Verified as {}", profile.name);
-            ctx.http()
-                .add_member_role(guild_id, author.id, data.verified_role_id, Some(&reason))
-                .await?;
-            ctx.http()
-                .remove_member_role(guild_id, author.id, data.unverified_role_id, Some(&reason))
-                .await?;
-            format!("You are now verified as `{}`!", profile.name)
-        }
+    let Some(player) =
+        hypixel::fetch_player(&data.http, &data.hypixel_api_key, &profile.id).await?
+    else {
+        ctx.say(format!("`{}` has never joined Hypixel.", profile.name))
+            .await?;
+        return Ok(());
     };
+    match &player.discord {
+        None => {
+            ctx.say(format!(
+                "`{}` has no Discord linked on Hypixel. In game, open your profile \
+                 → Social Media → Discord and enter `{}`, then try again.",
+                profile.name, author.name
+            ))
+            .await?;
+            return Ok(());
+        }
+        Some(discord) if !is_same_user(author, discord) => {
+            ctx.say(format!(
+                "`{}` is linked to the Discord `{discord}`, not to you (`{}`).",
+                profile.name, author.name
+            ))
+            .await?;
+            return Ok(());
+        }
+        Some(_) => {}
+    }
 
+    let rules = config::list_rules(&data.db, guild_id).await?;
+    let needs_guild = rules.iter().any(|rule| rule.kind != RuleKind::HypixelRank);
+    // Only the linked Hypixel guild counts, being in another one is the same as being in none
+    let player_guild = match &config.hypixel_guild {
+        Some(linked) if needs_guild => {
+            let query = GuildQuery::Player(&profile.id);
+            hypixel::fetch_guild(&data.http, &data.hypixel_api_key, query)
+                .await?
+                .filter(|guild| guild.id == linked.id)
+        }
+        _ => None,
+    };
+    let guild_rank = player_guild
+        .as_ref()
+        .and_then(|guild| guild.member_rank(&profile.id));
+
+    // Roles referenced by rules are kept in sync: granted when the rule matches, removed otherwise
+    let mut wanted = BTreeSet::from([verified_role_id]);
+    let mut unwanted = BTreeSet::new();
+    for rule in &rules {
+        let matches = match rule.kind {
+            RuleKind::HypixelRank => player.rank.as_deref() == Some(rule.value.as_str()),
+            RuleKind::GuildMember => guild_rank.is_some(),
+            RuleKind::GuildRank => {
+                guild_rank.is_some_and(|rank| rank.eq_ignore_ascii_case(&rule.value))
+            }
+        };
+        if matches {
+            wanted.insert(rule.role_id);
+        } else {
+            unwanted.insert(rule.role_id);
+        }
+    }
+    unwanted.extend(config.unverified_role_id);
+    unwanted.retain(|role| !wanted.contains(role));
+
+    let current_roles = match ctx.author_member().await {
+        Some(member) => member.roles.clone(),
+        None => Vec::new(),
+    };
+    wanted.retain(|role| !current_roles.contains(role));
+    unwanted.retain(|role| current_roles.contains(role));
+
+    let reason = format!("Verified as {}", profile.name);
+    for &role in &wanted {
+        ctx.http()
+            .add_member_role(guild_id, author.id, role, Some(&reason))
+            .await?;
+    }
+    for &role in &unwanted {
+        ctx.http()
+            .remove_member_role(guild_id, author.id, role, Some(&reason))
+            .await?;
+    }
+
+    let mut message = format!("You are verified as `{}`!", profile.name);
+    if !wanted.is_empty() {
+        message += &format!("\nRoles added: {}", mention_roles(&wanted));
+    }
+    if !unwanted.is_empty() {
+        message += &format!("\nRoles removed: {}", mention_roles(&unwanted));
+    }
     ctx.say(message).await?;
     Ok(())
 }

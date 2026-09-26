@@ -1,0 +1,192 @@
+use poise::serenity_prelude as serenity;
+use sqlx::SqlitePool;
+use sqlx::sqlite::SqliteConnectOptions;
+use std::str::FromStr;
+
+use crate::Error;
+
+pub async fn connect(url: &str) -> Result<SqlitePool, Error> {
+    let options = SqliteConnectOptions::from_str(url)?.create_if_missing(true);
+    let pool = SqlitePool::connect_with(options).await?;
+    sqlx::migrate!().run(&pool).await?;
+    Ok(pool)
+}
+
+// SQLite has no unsigned integers, Discord IDs fit in an i64 bit for bit
+fn to_db(id: impl Into<u64>) -> i64 {
+    id.into() as i64
+}
+
+fn role_from_db(id: i64) -> Option<serenity::RoleId> {
+    std::num::NonZeroU64::new(id as u64).map(serenity::RoleId::from)
+}
+
+pub struct HypixelGuildLink {
+    pub id: String,
+    pub name: String,
+}
+
+#[derive(Default)]
+pub struct GuildConfig {
+    pub verified_role_id: Option<serenity::RoleId>,
+    pub unverified_role_id: Option<serenity::RoleId>,
+    pub hypixel_guild: Option<HypixelGuildLink>,
+}
+
+#[derive(sqlx::FromRow)]
+struct GuildConfigRow {
+    verified_role_id: Option<i64>,
+    unverified_role_id: Option<i64>,
+    hypixel_guild_id: Option<String>,
+    hypixel_guild_name: Option<String>,
+}
+
+pub async fn get_config(
+    db: &SqlitePool,
+    guild_id: serenity::GuildId,
+) -> Result<GuildConfig, Error> {
+    let row: Option<GuildConfigRow> = sqlx::query_as(
+        "SELECT verified_role_id, unverified_role_id, hypixel_guild_id, hypixel_guild_name
+         FROM guild_config WHERE guild_id = ?",
+    )
+    .bind(to_db(guild_id))
+    .fetch_optional(db)
+    .await?;
+
+    let Some(row) = row else {
+        return Ok(GuildConfig::default());
+    };
+    Ok(GuildConfig {
+        verified_role_id: row.verified_role_id.and_then(role_from_db),
+        unverified_role_id: row.unverified_role_id.and_then(role_from_db),
+        hypixel_guild: row
+            .hypixel_guild_id
+            .zip(row.hypixel_guild_name)
+            .map(|(id, name)| HypixelGuildLink { id, name }),
+    })
+}
+
+pub async fn set_roles(
+    db: &SqlitePool,
+    guild_id: serenity::GuildId,
+    verified: Option<serenity::RoleId>,
+    unverified: Option<serenity::RoleId>,
+) -> Result<(), Error> {
+    sqlx::query(
+        "INSERT INTO guild_config (guild_id, verified_role_id, unverified_role_id) VALUES (?, ?, ?)
+         ON CONFLICT (guild_id) DO UPDATE SET
+             verified_role_id = excluded.verified_role_id,
+             unverified_role_id = excluded.unverified_role_id",
+    )
+    .bind(to_db(guild_id))
+    .bind(verified.map(to_db))
+    .bind(unverified.map(to_db))
+    .execute(db)
+    .await?;
+    Ok(())
+}
+
+pub async fn set_hypixel_guild(
+    db: &SqlitePool,
+    guild_id: serenity::GuildId,
+    link: Option<HypixelGuildLink>,
+) -> Result<(), Error> {
+    let (id, name) = link.map(|link| (link.id, link.name)).unzip();
+    sqlx::query(
+        "INSERT INTO guild_config (guild_id, hypixel_guild_id, hypixel_guild_name) VALUES (?, ?, ?)
+         ON CONFLICT (guild_id) DO UPDATE SET
+             hypixel_guild_id = excluded.hypixel_guild_id,
+             hypixel_guild_name = excluded.hypixel_guild_name",
+    )
+    .bind(to_db(guild_id))
+    .bind(id)
+    .bind(name)
+    .execute(db)
+    .await?;
+    Ok(())
+}
+
+#[derive(Clone, Copy, PartialEq)]
+pub enum RuleKind {
+    /// `value` is a key of `hypixel::RANKS`
+    HypixelRank,
+    /// Member of the linked Hypixel guild, `value` is unused
+    GuildMember,
+    /// `value` is a rank name in the linked Hypixel guild
+    GuildRank,
+}
+
+impl RuleKind {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::HypixelRank => "hypixel_rank",
+            Self::GuildMember => "guild_member",
+            Self::GuildRank => "guild_rank",
+        }
+    }
+
+    pub fn parse(kind: &str) -> Option<Self> {
+        [Self::HypixelRank, Self::GuildMember, Self::GuildRank]
+            .into_iter()
+            .find(|candidate| candidate.as_str() == kind)
+    }
+}
+
+pub struct Rule {
+    pub id: i64,
+    pub kind: RuleKind,
+    pub value: String,
+    pub role_id: serenity::RoleId,
+}
+
+pub async fn list_rules(db: &SqlitePool, guild_id: serenity::GuildId) -> Result<Vec<Rule>, Error> {
+    let rows: Vec<(i64, String, String, i64)> = sqlx::query_as(
+        "SELECT id, kind, value, role_id FROM role_rule WHERE guild_id = ? ORDER BY id",
+    )
+    .bind(to_db(guild_id))
+    .fetch_all(db)
+    .await?;
+
+    Ok(rows
+        .into_iter()
+        .filter_map(|(id, kind, value, role_id)| {
+            Some(Rule {
+                id,
+                kind: RuleKind::parse(&kind)?,
+                value,
+                role_id: role_from_db(role_id)?,
+            })
+        })
+        .collect())
+}
+
+pub async fn add_rule(
+    db: &SqlitePool,
+    guild_id: serenity::GuildId,
+    kind: RuleKind,
+    value: &str,
+    role_id: serenity::RoleId,
+) -> Result<(), Error> {
+    sqlx::query("INSERT INTO role_rule (guild_id, kind, value, role_id) VALUES (?, ?, ?, ?)")
+        .bind(to_db(guild_id))
+        .bind(kind.as_str())
+        .bind(value)
+        .bind(to_db(role_id))
+        .execute(db)
+        .await?;
+    Ok(())
+}
+
+pub async fn delete_rule(
+    db: &SqlitePool,
+    guild_id: serenity::GuildId,
+    rule_id: i64,
+) -> Result<(), Error> {
+    // Scoped by guild so a panel user can only delete rules of a guild they manage
+    sqlx::query("DELETE FROM role_rule WHERE id = ? AND guild_id = ?")
+        .bind(rule_id)
+        .bind(to_db(guild_id))
+        .execute(db)
+        .await?;
+    Ok(())
+}
