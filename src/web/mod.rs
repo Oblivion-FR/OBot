@@ -18,6 +18,7 @@ use std::time::{Duration, Instant};
 use crate::Error;
 use crate::config::{self, HypixelGuildLink, RuleKind};
 use crate::hypixel::{self, GuildQuery};
+use crate::nickname::{self, Field, NicknameFormat};
 use auth::{LoggedIn, MaybeLoggedIn, User};
 pub use auth::{OAuthConfig, Sessions};
 
@@ -67,6 +68,11 @@ pub fn router(state: AppState) -> Router {
         .route(
             "/guilds/{guild_id}/rules/{rule_id}/delete",
             post(delete_rule),
+        )
+        .route("/guilds/{guild_id}/nickname", post(save_nickname))
+        .route(
+            "/guilds/{guild_id}/nickname/preview",
+            post(preview_nickname),
         )
         .layer(middleware::from_fn_with_state(state.clone(), check_origin))
         .with_state(state)
@@ -248,7 +254,77 @@ struct GuildPage {
     guild_ranks_error: bool,
     rules: Vec<RuleRow>,
     ranks: &'static [(&'static str, &'static str)],
+    nickname_enabled: bool,
+    nickname_separator: String,
+    nickname_rows: Vec<NicknameRow>,
+    previews: Vec<Preview>,
     error: Option<&'static str>,
+}
+
+struct NicknameRow {
+    key: &'static str,
+    label: &'static str,
+    position: usize,
+    enabled: bool,
+    prefix: String,
+    suffix: String,
+    importance: u8,
+}
+
+impl NicknameRow {
+    fn from_format(format: &NicknameFormat) -> Vec<Self> {
+        format
+            .segments
+            .iter()
+            .enumerate()
+            .map(|(index, segment)| NicknameRow {
+                key: segment.field.as_str(),
+                label: segment.field.label(),
+                position: index + 1,
+                enabled: segment.enabled,
+                prefix: segment.prefix.clone(),
+                suffix: segment.suffix.clone(),
+                importance: segment.importance,
+            })
+            .collect()
+    }
+}
+
+struct Preview {
+    label: &'static str,
+    nickname: String,
+}
+
+impl Preview {
+    fn length(&self) -> usize {
+        self.nickname.chars().count()
+    }
+}
+
+/// Sample members: a typical one, and one with every field at its longest to show what gets dropped
+fn previews(format: &NicknameFormat) -> Vec<Preview> {
+    let samples = [
+        ("Example", "MVP+", "Notch", "OFC", "OBOT"),
+        ("Longest", "MVP++", "Sixteen_Chars_Ok", "ELITE", "LONGTG"),
+    ];
+    samples
+        .into_iter()
+        .map(|(label, rank, ign, guild_rank_tag, guild_tag)| Preview {
+            label,
+            nickname: format.render(&nickname::Values {
+                hypixel_rank: Some(rank),
+                ign,
+                guild_rank_tag: Some(guild_rank_tag),
+                guild_tag: Some(guild_tag),
+            }),
+        })
+        .collect()
+}
+
+#[derive(Template)]
+#[template(path = "nickname_preview.html")]
+struct PreviewFragment {
+    previews: Vec<Preview>,
 }
 
 #[derive(Deserialize)]
@@ -281,6 +357,7 @@ async fn guild_page(
     let guild_id = access.guild_id;
     let config = config::get_config(&state.db, guild_id).await?;
     let rules = config::list_rules(&state.db, guild_id).await?;
+    let nickname_format = config::get_nickname_format(&state.db, guild_id).await?;
     let (guild_ranks, guild_ranks_error) = match &config.hypixel_guild {
         None => (Vec::new(), false),
         Some(link) => match state.guild_rank_names(&link.id).await {
@@ -359,6 +436,10 @@ async fn guild_page(
         guild_ranks_error,
         rules,
         ranks: hypixel::RANKS,
+        nickname_enabled: nickname_format.enabled,
+        nickname_separator: nickname_format.separator.clone(),
+        nickname_rows: NicknameRow::from_format(&nickname_format),
+        previews: previews(&nickname_format),
         error: params.error.as_deref().and_then(error_message),
     })
 }
@@ -529,6 +610,79 @@ async fn delete_rule(
     Ok(guild_redirect(guild_id, None))
 }
 
+const MAX_WRAPPING_LEN: usize = 8;
+const MAX_SEPARATOR_LEN: usize = 5;
+
+fn limit(value: &str, max: usize) -> String {
+    value.chars().take(max).collect()
+}
+
+/// The nickname form has one set of inputs per field, named `<field>_<setting>`
+fn parse_nickname_form(form: &HashMap<String, String>) -> NicknameFormat {
+    let get = |name: &str| form.get(name).map(String::as_str).unwrap_or_default();
+    let mut positioned: Vec<(u8, usize, nickname::Segment)> = Field::ALL
+        .into_iter()
+        .enumerate()
+        .map(|(index, field)| {
+            let key = field.as_str();
+            let number = |setting: &str| {
+                get(&format!("{key}_{setting}"))
+                    .trim()
+                    .parse::<u8>()
+                    .unwrap_or(9)
+                    .clamp(1, 9)
+            };
+            let segment = nickname::Segment {
+                field,
+                enabled: form.contains_key(&format!("{key}_enabled")),
+                prefix: limit(get(&format!("{key}_prefix")), MAX_WRAPPING_LEN),
+                suffix: limit(get(&format!("{key}_suffix")), MAX_WRAPPING_LEN),
+                importance: number("importance"),
+            };
+            (number("position"), index, segment)
+        })
+        .collect();
+    positioned.sort_by_key(|(position, index, _)| (*position, *index));
+
+    NicknameFormat {
+        enabled: form.contains_key("nickname_enabled"),
+        separator: limit(get("separator"), MAX_SEPARATOR_LEN),
+        segments: positioned
+            .into_iter()
+            .map(|(_, _, segment)| segment)
+            .collect(),
+    }
+}
+
+async fn save_nickname(
+    State(state): State<Arc<AppState>>,
+    LoggedIn(user): LoggedIn,
+    Path(guild_id): Path<NonZeroU64>,
+    Form(form): Form<HashMap<String, String>>,
+) -> Result<Response, AppError> {
+    let access = match state.authorize(guild_id, &user).await {
+        Ok(access) => access,
+        Err(response) => return Ok(response),
+    };
+    let format = parse_nickname_form(&form);
+    config::set_nickname_format(&state.db, access.guild_id, &format).await?;
+    Ok(guild_redirect(access.guild_id, None))
+}
+
+async fn preview_nickname(
+    State(state): State<Arc<AppState>>,
+    LoggedIn(user): LoggedIn,
+    Path(guild_id): Path<NonZeroU64>,
+    Form(form): Form<HashMap<String, String>>,
+) -> Result<Response, AppError> {
+    if let Err(response) = state.authorize(guild_id, &user).await {
+        return Ok(response);
+    }
+    render(PreviewFragment {
+        previews: previews(&parse_nickname_form(&form)),
+    })
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -566,6 +720,10 @@ mod tests {
                 role: "@Verified".to_owned(),
             }],
             ranks: hypixel::RANKS,
+            nickname_enabled: true,
+            nickname_separator: " ".to_owned(),
+            nickname_rows: NicknameRow::from_format(&NicknameFormat::default()),
+            previews: previews(&NicknameFormat::default()),
             error: error_message("role_not_allowed"),
         };
         let html = page.render().expect("template renders");
@@ -579,6 +737,39 @@ mod tests {
         assert!(html.contains(r#"value="My Guild""#));
         assert!(html.contains("/guilds/2/rules/5/delete"));
         assert!(html.contains("You can only pick roles below your highest role."));
+        assert!(html.contains("[MVP+] Notch [OFC]"));
         assert!(html.contains(r#"<option value="Officer">Officer</option>"#));
+        assert!(html.contains(r#"name="hypixel_rank_prefix" value="[""#));
+    }
+
+    #[test]
+    fn nickname_form_reorders_and_limits() {
+        let form: HashMap<String, String> = [
+            ("nickname_enabled", "on"),
+            ("separator", " "),
+            ("ign_enabled", "on"),
+            ("ign_position", "1"),
+            ("ign_importance", "1"),
+            ("hypixel_rank_enabled", "on"),
+            ("hypixel_rank_position", "2"),
+            ("hypixel_rank_prefix", "(((((((((((("),
+            ("hypixel_rank_suffix", ")"),
+            ("hypixel_rank_importance", "not a number"),
+        ]
+        .into_iter()
+        .map(|(key, value)| (key.to_owned(), value.to_owned()))
+        .collect();
+        let format = parse_nickname_form(&form);
+
+        assert!(format.enabled);
+        let order: Vec<_> = format
+            .segments
+            .iter()
+            .map(|segment| segment.field)
+            .collect();
+        assert!(order[..2] == [Field::Ign, Field::HypixelRank]);
+        assert_eq!(format.segments[1].prefix.len(), MAX_WRAPPING_LEN);
+        assert_eq!(format.segments[1].importance, 9);
+        assert!(!format.segments[2].enabled, "unchecked fields are disabled");
     }
 }

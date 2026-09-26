@@ -4,6 +4,7 @@ use sqlx::sqlite::SqliteConnectOptions;
 use std::str::FromStr;
 
 use crate::Error;
+use crate::nickname::{self, NicknameFormat, Segment};
 
 pub async fn connect(url: &str) -> Result<SqlitePool, Error> {
     let options = SqliteConnectOptions::from_str(url)?.create_if_missing(true);
@@ -188,5 +189,95 @@ pub async fn delete_rule(
         .bind(to_db(guild_id))
         .execute(db)
         .await?;
+    Ok(())
+}
+
+pub async fn get_nickname_format(
+    db: &SqlitePool,
+    guild_id: serenity::GuildId,
+) -> Result<NicknameFormat, Error> {
+    let mut format = NicknameFormat::default();
+    let settings: Option<(bool, String)> = sqlx::query_as(
+        "SELECT nickname_enabled, nickname_separator FROM guild_config WHERE guild_id = ?",
+    )
+    .bind(to_db(guild_id))
+    .fetch_optional(db)
+    .await?;
+    if let Some((enabled, separator)) = settings {
+        format.enabled = enabled;
+        format.separator = separator;
+    }
+
+    let rows: Vec<(String, bool, String, String, u8)> = sqlx::query_as(
+        "SELECT field, enabled, prefix, suffix, importance FROM nickname_segment
+         WHERE guild_id = ? ORDER BY position",
+    )
+    .bind(to_db(guild_id))
+    .fetch_all(db)
+    .await?;
+    let mut segments: Vec<Segment> = rows
+        .into_iter()
+        .filter_map(|(field, enabled, prefix, suffix, importance)| {
+            Some(Segment {
+                field: nickname::Field::parse(&field)?,
+                enabled,
+                prefix,
+                suffix,
+                importance,
+            })
+        })
+        .collect();
+    // Fields never saved keep their default, at the end
+    for default in &format.segments {
+        if !segments
+            .iter()
+            .any(|segment| segment.field == default.field)
+        {
+            segments.push(default.clone());
+        }
+    }
+    format.segments = segments;
+    Ok(format)
+}
+
+pub async fn set_nickname_format(
+    db: &SqlitePool,
+    guild_id: serenity::GuildId,
+    format: &NicknameFormat,
+) -> Result<(), Error> {
+    let mut transaction = db.begin().await?;
+    sqlx::query(
+        "INSERT INTO guild_config (guild_id, nickname_enabled, nickname_separator) VALUES (?, ?, ?)
+         ON CONFLICT (guild_id) DO UPDATE SET
+             nickname_enabled = excluded.nickname_enabled,
+             nickname_separator = excluded.nickname_separator",
+    )
+    .bind(to_db(guild_id))
+    .bind(format.enabled)
+    .bind(&format.separator)
+    .execute(&mut *transaction)
+    .await?;
+
+    sqlx::query("DELETE FROM nickname_segment WHERE guild_id = ?")
+        .bind(to_db(guild_id))
+        .execute(&mut *transaction)
+        .await?;
+    for (position, segment) in format.segments.iter().enumerate() {
+        sqlx::query(
+            "INSERT INTO nickname_segment
+                 (guild_id, field, position, enabled, prefix, suffix, importance)
+             VALUES (?, ?, ?, ?, ?, ?, ?)",
+        )
+        .bind(to_db(guild_id))
+        .bind(segment.field.as_str())
+        .bind(position as i64)
+        .bind(segment.enabled)
+        .bind(&segment.prefix)
+        .bind(&segment.suffix)
+        .bind(segment.importance)
+        .execute(&mut *transaction)
+        .await?;
+    }
+    transaction.commit().await?;
     Ok(())
 }

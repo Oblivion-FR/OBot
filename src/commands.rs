@@ -3,6 +3,7 @@ use std::collections::BTreeSet;
 
 use crate::config::{self, RuleKind};
 use crate::hypixel::{self, GuildQuery};
+use crate::nickname;
 use crate::{Context, Error};
 
 /// Check that the bot is alive
@@ -16,6 +17,32 @@ pub async fn healthcheck(ctx: Context<'_>) -> Result<(), Error> {
 fn is_same_user(user: &serenity::User, linked: &str) -> bool {
     let linked = linked.trim();
     linked.eq_ignore_ascii_case(&user.name) || linked.eq_ignore_ascii_case(&user.tag())
+}
+
+/// Discord never lets bots rename the server owner, nor members whose highest role is at or
+/// above the bot's. The error is shown to the member.
+fn can_rename(ctx: Context<'_>, member: &serenity::Member) -> Result<(), &'static str> {
+    let Some(guild) = ctx.guild() else {
+        return Err("the bot couldn't load this server");
+    };
+    if guild.owner_id == member.user.id {
+        return Err("bots can't rename the server owner");
+    }
+    let bot_id = ctx.cache().current_user().id;
+    // Without the bot's member in cache, let Discord decide
+    let Some(bot) = guild.members.get(&bot_id) else {
+        return Ok(());
+    };
+    let top_position = |member| {
+        guild
+            .member_highest_role(member)
+            .map_or(0, |role| role.position)
+    };
+    if top_position(bot) > top_position(member) {
+        Ok(())
+    } else {
+        Err("your highest role is at or above the bot's")
+    }
 }
 
 fn mention_roles(roles: &BTreeSet<serenity::RoleId>) -> String {
@@ -81,7 +108,9 @@ pub async fn verify(
     }
 
     let rules = config::list_rules(&data.db, guild_id).await?;
-    let needs_guild = rules.iter().any(|rule| rule.kind != RuleKind::HypixelRank);
+    let nickname_format = config::get_nickname_format(&data.db, guild_id).await?;
+    let needs_guild = rules.iter().any(|rule| rule.kind != RuleKind::HypixelRank)
+        || (nickname_format.enabled && nickname_format.needs_guild());
     // Only the linked Hypixel guild counts, being in another one is the same as being in none
     let player_guild = match &config.hypixel_guild {
         Some(linked) if needs_guild => {
@@ -116,9 +145,17 @@ pub async fn verify(
     unwanted.extend(config.unverified_role_id);
     unwanted.retain(|role| !wanted.contains(role));
 
-    let current_roles = match ctx.author_member().await {
-        Some(member) => member.roles.clone(),
-        None => Vec::new(),
+    let (current_roles, current_nickname, renamable) = match ctx.author_member().await {
+        Some(member) => (
+            member.roles.clone(),
+            member.nick.clone(),
+            can_rename(ctx, &member),
+        ),
+        None => (
+            Vec::new(),
+            None,
+            Err("the bot couldn't load your server profile"),
+        ),
     };
     wanted.retain(|role| !current_roles.contains(role));
     unwanted.retain(|role| current_roles.contains(role));
@@ -141,6 +178,41 @@ pub async fn verify(
     }
     if !unwanted.is_empty() {
         message += &format!("\nRoles removed: {}", mention_roles(&unwanted));
+    }
+
+    if nickname_format.enabled {
+        let nickname = nickname_format.render(&nickname::Values {
+            hypixel_rank: player.rank.as_deref().map(hypixel::rank_label),
+            ign: &profile.name,
+            guild_rank_tag: player_guild
+                .as_ref()
+                .zip(guild_rank)
+                .and_then(|(guild, rank)| guild.rank_tag(rank)),
+            guild_tag: player_guild.as_ref().and_then(|guild| guild.tag.as_deref()),
+        });
+        // An empty nickname would reset it to the Discord name instead
+        if !nickname.is_empty() && current_nickname.as_deref() != Some(nickname.as_str()) {
+            // A skipped or failed rename is only a warning, the roles are already updated
+            let skipped = match renamable {
+                Err(why) => Some(why),
+                Ok(()) => {
+                    let edit = serenity::EditMember::new()
+                        .nickname(&nickname)
+                        .audit_log_reason(&reason);
+                    match guild_id.edit_member(ctx, author.id, edit).await {
+                        Ok(_) => None,
+                        Err(error) => {
+                            eprintln!("Could not rename {} in {guild_id}: {error}", author.id);
+                            Some("the bot may be missing the Manage Nicknames permission")
+                        }
+                    }
+                }
+            };
+            message += &match skipped {
+                None => format!("\nNickname set to `{nickname}`"),
+                Some(why) => format!("\n⚠️ Nickname not changed to `{nickname}`: {why}."),
+            };
+        }
     }
     ctx.say(message).await?;
     Ok(())

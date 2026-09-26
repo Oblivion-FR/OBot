@@ -46,6 +46,23 @@
       padding: 8px 0; border-bottom: 1px solid var(--border); }
     ul.list a { color: var(--accent); text-decoration: none; }
     .empty { color: var(--muted); font-style: italic; }
+    .form-line { display: flex; flex-wrap: wrap; gap: 12px; align-items: end; margin-bottom: 12px; }
+    label.check { flex-direction: row; align-items: center; gap: 8px; color: var(--text);
+      font-size: 15px; flex: 1 1 auto; }
+    label.check input, table.segments input[type="checkbox"] { width: auto; }
+    label.narrow { flex: 0 0 110px; }
+    .table-scroll { overflow-x: auto; margin-bottom: 12px; }
+    table.segments { border-collapse: collapse; width: 100%; min-width: 520px; }
+    table.segments th { text-align: left; font-size: 13px; font-weight: 500; color: var(--muted);
+      padding: 0 6px 6px; }
+    table.segments td { padding: 4px 6px; border-top: 1px solid var(--border); }
+    table.segments input[type="number"] { width: 64px; }
+    table.segments input:not([type]) { width: 72px; }
+    .preview { background: var(--bg); border: 1px solid var(--border); border-radius: 6px;
+      padding: 8px 12px; margin-bottom: 12px; }
+    .preview-line { display: flex; gap: 10px; align-items: baseline; flex-wrap: wrap; }
+    .preview-line .hint { margin: 0; }
+    .preview-line .hint:first-child { width: 60px; }
   </style>
 </head>
 <body hx-boost="true">

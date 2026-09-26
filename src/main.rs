@@ -1,6 +1,7 @@
 mod commands;
 mod config;
 mod hypixel;
+mod nickname;
 mod web;
 
 use poise::serenity_prelude as serenity;

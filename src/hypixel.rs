@@ -131,6 +131,7 @@ pub struct Guild {
     #[serde(rename = "_id")]
     pub id: String,
     pub name: String,
+    pub tag: Option<String>,
     #[serde(default)]
     members: Vec<GuildMember>,
     #[serde(default)]
@@ -140,6 +141,7 @@ pub struct Guild {
 #[derive(Deserialize)]
 struct GuildRank {
     name: String,
+    tag: Option<String>,
     #[serde(default)]
     priority: i64,
 }
@@ -173,6 +175,18 @@ impl Guild {
         std::iter::once(GUILD_MASTER.to_owned())
             .chain(ranks.into_iter().map(|rank| rank.name.clone()))
             .collect()
+    }
+
+    /// The short tag of a guild rank, `None` if that rank has no tag
+    pub fn rank_tag(&self, rank: &str) -> Option<&str> {
+        if rank.eq_ignore_ascii_case(GUILD_MASTER) {
+            return Some("GM");
+        }
+        self.ranks
+            .iter()
+            .find(|candidate| candidate.name.eq_ignore_ascii_case(rank))
+            .and_then(|candidate| candidate.tag.as_deref())
+            .filter(|tag| !tag.is_empty())
     }
 }
 
@@ -208,9 +222,10 @@ pub async fn fetch_guild(
 mod tests {
     use super::*;
 
-    fn rank(name: &str, priority: i64) -> GuildRank {
+    fn rank(name: &str, tag: Option<&str>, priority: i64) -> GuildRank {
         GuildRank {
             name: name.to_owned(),
+            tag: tag.map(str::to_owned),
             priority,
         }
     }
@@ -220,14 +235,18 @@ mod tests {
         let guild = Guild {
             id: "id".to_owned(),
             name: "Guild".to_owned(),
+            tag: None,
             members: vec![GuildMember {
                 uuid: "owner".to_owned(),
                 rank: "GUILDMASTER".to_owned(),
             }],
-            ranks: vec![rank("Member", 1), rank("Officer", 3)],
+            ranks: vec![rank("Member", None, 1), rank("Officer", Some("OFC"), 3)],
         };
 
         assert_eq!(guild.rank_names(), ["Guild Master", "Officer", "Member"]);
         assert_eq!(guild.member_rank("owner"), Some(GUILD_MASTER));
+        assert_eq!(guild.rank_tag("Guild Master"), Some("GM"));
+        assert_eq!(guild.rank_tag("officer"), Some("OFC"));
+        assert_eq!(guild.rank_tag("Member"), None);
     }
 }

@@ -1,0 +1,7 @@
+{% for preview in previews %}
+<div class="preview-line">
+  <span class="hint">{{ preview.label }}</span>
+  <code>{% if preview.nickname.is_empty() %}(unchanged){% else %}{{ preview.nickname }}{% endif %}</code>
+  <span class="hint">{{ preview.length() }}/32</span>
+</div>
+{% endfor %}
