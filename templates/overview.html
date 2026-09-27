@@ -1,0 +1,75 @@
+{% extends "guild_shell.html" %}
+{% import "icons.html" as icons %}
+{% block page %}
+<div class="page-header">
+  <h1>Overview</h1>
+  <p>How verification is set up on {{ guild.name }}.</p>
+</div>
+
+<div class="grid">
+  <a class="card stat-card" href="/guilds/{{ guild.id }}/verification">
+    <div class="stat-top">
+      <span class="icon-bubble">{% call icons::verification() %}{% endcall %}</span>
+      {% if verified_role.is_some() %}<span class="badge ok">Active</span>{% else %}<span class="badge warn">Not set up</span>{% endif %}
+    </div>
+    <h2>Verification</h2>
+    {% if let Some(role) = verified_role %}
+    <div><span class="role-chip"><span class="role-dot" style="--role-color: {{ role.color }}"></span>{{ role.name }}</span></div>
+    <p class="hint">Given on /verify</p>
+    {% else %}
+    <p class="hint">Pick a verified role to enable /verify.</p>
+    {% endif %}
+    <span class="stat-link">Configure →</span>
+  </a>
+
+  <a class="card stat-card" href="/guilds/{{ guild.id }}/verification">
+    <div class="stat-top">
+      <span class="icon-bubble">{% call icons::guild() %}{% endcall %}</span>
+      {% if hypixel_guild.is_some() %}<span class="badge ok">Linked</span>{% else %}<span class="badge off">Not linked</span>{% endif %}
+    </div>
+    <h2>Hypixel guild</h2>
+    {% if let Some(name) = hypixel_guild %}
+    <span class="stat-value">{{ name }}</span>
+    {% else %}
+    <p class="hint">Link one to use guild rules and tags.</p>
+    {% endif %}
+    <span class="stat-link">Configure →</span>
+  </a>
+
+  <a class="card stat-card" href="/guilds/{{ guild.id }}/rules">
+    <div class="stat-top">
+      <span class="icon-bubble">{% call icons::rules() %}{% endcall %}</span>
+      {% if rule_count > 0 %}<span class="badge ok">{{ rule_count }} active</span>{% else %}<span class="badge off">None</span>{% endif %}
+    </div>
+    <h2>Role rules</h2>
+    <span class="stat-value">{{ rule_count }} rule{% if rule_count != 1 %}s{% endif %}</span>
+    <p class="hint">Roles given from Hypixel rank and guild.</p>
+    <span class="stat-link">Manage →</span>
+  </a>
+
+  <a class="card stat-card" href="/guilds/{{ guild.id }}/nickname">
+    <div class="stat-top">
+      <span class="icon-bubble">{% call icons::nickname() %}{% endcall %}</span>
+      {% if nickname_enabled %}<span class="badge ok">On</span>{% else %}<span class="badge off">Off</span>{% endif %}
+    </div>
+    <h2>Nickname</h2>
+    <div><code>{{ nickname_example }}</code></div>
+    <p class="hint">Example of a renamed member.</p>
+    <span class="stat-link">Configure →</span>
+  </a>
+</div>
+
+<div class="card" style="margin-top: 16px">
+  <div class="card-header">
+    <div>
+      <h2>How members verify</h2>
+      <p class="hint">What to tell your members.</p>
+    </div>
+  </div>
+  <ol class="hint" style="margin: 0; padding-left: 20px; display: grid; gap: 6px">
+    <li>On Hypixel, open the profile menu → Social Media → Discord, and enter their Discord username.</li>
+    <li>In this server, run <code>/verify</code> with their Minecraft name.</li>
+    <li>OBot checks the link, then updates their roles{% if nickname_enabled %} and nickname{% endif %}.</li>
+  </ol>
+</div>
+{% endblock %}

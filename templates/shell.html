@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+{% import "icons.html" as icons %}
+{% block body %}
+<div class="app{% block app_class %}{% endblock %}">
+  <nav class="rail" aria-label="Servers">
+    <a href="/" class="rail-item{% if shell.current.is_none() %} active{% endif %}" data-tooltip="Home" aria-label="Home">{% call icons::logo() %}{% endcall %}</a>
+    <div class="rail-separator"></div>
+    {% for guild in shell.guilds %}
+    <a href="/guilds/{{ guild.id }}" class="rail-item{% if shell.current.as_ref() == Some(guild.id) %} active{% endif %}" data-tooltip="{{ guild.name }}" aria-label="{{ guild.name }}">
+      {% if let Some(icon) = guild.icon_url.as_deref() %}<img src="{{ icon }}" alt="">{% else %}{{ guild.initials }}{% endif %}
+    </a>
+    {% endfor %}
+    <a href="{{ shell.invite_url }}" class="rail-item rail-add" data-tooltip="Add OBot to a server" aria-label="Add OBot to a server" target="_blank" rel="noopener" hx-boost="false">{% call icons::plus() %}{% endcall %}</a>
+  </nav>
+
+  {% block sidebar %}{% endblock %}
+
+  <div class="main">
+    <header class="topbar">
+      <div class="topbar-title">{% block topbar_title %}{% endblock %}</div>
+      <form method="post" action="/logout" class="user-menu">
+        <img class="avatar" src="{{ shell.user.avatar_url }}" alt="">
+        <span class="user-name">{{ shell.user.name }}</span>
+        <button class="icon-button" type="submit" title="Log out" aria-label="Log out">{% call icons::logout() %}{% endcall %}</button>
+      </form>
+    </header>
+    <main class="content">{% block content %}{% endblock %}</main>
+  </div>
+</div>
+{% endblock %}

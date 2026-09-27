@@ -96,6 +96,7 @@ async fn main() -> Result<(), Error> {
         },
         sessions: web::Sessions::default(),
         guild_ranks: web::GuildRankCache::default(),
+        manageable_guilds: web::ManageableGuildsCache::default(),
     });
     let listener = tokio::net::TcpListener::bind(&panel_bind).await?;
     println!("Panel listening on {panel_url}");

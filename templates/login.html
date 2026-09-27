@@ -1,8 +1,13 @@
 {% extends "base.html" %}
-{% block content %}
-<section>
-  <h1>Configure OBot</h1>
-  <p class="hint">Log in with a Discord account that has Administrator, or Manage Server and Manage Roles, in a server where the bot is.</p>
-  <a href="/login" hx-boost="false"><button type="button">Log in with Discord</button></a>
-</section>
+{% import "icons.html" as icons %}
+{% block title %}Log in · OBot{% endblock %}
+{% block body %}
+<main class="login">
+  <div class="card login-card">
+    <div class="logo">{% call icons::logo() %}{% endcall %}</div>
+    <h1>OBot dashboard</h1>
+    <p class="hint">Configure verification, role rules and nicknames for your servers. You need Administrator, or Manage Server and Manage Roles.</p>
+    <a class="btn large" href="/login" hx-boost="false">{% call icons::discord() %}{% endcall %} Log in with Discord</a>
+  </div>
+</main>
 {% endblock %}

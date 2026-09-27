@@ -1,0 +1,51 @@
+{% extends "guild_shell.html" %}
+{% block page %}
+<div class="page-header">
+  <h1>Verification</h1>
+  <p>What /verify gives and removes, and which Hypixel guild counts for guild rules.</p>
+</div>
+
+<div class="stack">
+  <form class="card" method="post" action="/guilds/{{ guild.id }}/roles">
+    <div class="card-header">
+      <div>
+        <h2>Verification roles</h2>
+        <p class="hint">Greyed out roles are above the bot's or your highest role.</p>
+      </div>
+    </div>
+    <div class="form-grid">
+      <label class="field">Verified role (given)
+        <select name="verified_role_id">
+          <option value="">None: /verify disabled</option>
+          {% for role in roles %}
+          <option value="{{ role.id }}"{% if verified_role_id.as_ref() == Some(role.id) %} selected{% endif %}{% if !role.assignable %} disabled{% endif %}>@{{ role.name }}</option>
+          {% endfor %}
+        </select>
+      </label>
+      <label class="field">Unverified role (removed)
+        <select name="unverified_role_id">
+          <option value="">None</option>
+          {% for role in roles %}
+          <option value="{{ role.id }}"{% if unverified_role_id.as_ref() == Some(role.id) %} selected{% endif %}{% if !role.assignable %} disabled{% endif %}>@{{ role.name }}</option>
+          {% endfor %}
+        </select>
+      </label>
+    </div>
+    <div class="card-footer"><button class="btn" type="submit">Save roles</button></div>
+  </form>
+
+  <form class="card" method="post" action="/guilds/{{ guild.id }}/hypixel-guild">
+    <div class="card-header">
+      <div>
+        <h2>Hypixel guild</h2>
+        <p class="hint">Needed for guild member and guild rank rules, and for guild tags in nicknames. Leave empty to unlink.</p>
+      </div>
+      {% if hypixel_guild.is_some() %}<span class="badge ok">Linked</span>{% else %}<span class="badge off">Not linked</span>{% endif %}
+    </div>
+    <label class="field">Guild name
+      <input name="name" value="{% if let Some(name) = hypixel_guild %}{{ name }}{% endif %}" placeholder="Not linked">
+    </label>
+    <div class="card-footer"><button class="btn" type="submit">Save guild</button></div>
+  </form>
+</div>
+{% endblock %}

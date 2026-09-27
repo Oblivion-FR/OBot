@@ -1,0 +1,66 @@
+{% extends "guild_shell.html" %}
+{% block page %}
+<div class="page-header">
+  <h1>Nickname</h1>
+  <p>Rename members on /verify from their Hypixel profile.</p>
+</div>
+
+<form class="stack" method="post" action="/guilds/{{ guild.id }}/nickname">
+  <section class="card">
+    <div class="card-header">
+      <label class="switch">
+        <input type="checkbox" name="nickname_enabled"{% if nickname_enabled %} checked{% endif %}>
+        <span>Rename members on /verify</span>
+      </label>
+    </div>
+    <div class="form-grid">
+      <label class="field">Separator between fields
+        <input name="separator" value="{{ nickname_separator }}" maxlength="5">
+      </label>
+    </div>
+  </section>
+
+  <section class="card">
+    <div class="card-header">
+      <div>
+        <h2>Fields</h2>
+        <p class="hint">Fields without a value (no rank, not in the guild) are skipped with their prefix and suffix. Above 32 characters, the highest importance number is dropped first.</p>
+      </div>
+    </div>
+    <div class="table-scroll">
+      <table class="segments">
+        <thead>
+          <tr><th>Show</th><th>Field</th><th>Order</th><th>Prefix</th><th>Suffix</th><th>Importance</th></tr>
+        </thead>
+        <tbody>
+          {% for row in nickname_rows %}
+          <tr>
+            <td><label class="switch compact"><input type="checkbox" name="{{ row.key }}_enabled" aria-label="Show {{ row.label }}"{% if row.enabled %} checked{% endif %}></label></td>
+            <td>{{ row.label }}</td>
+            <td><input type="number" name="{{ row.key }}_position" value="{{ row.position }}" min="1" max="9" aria-label="{{ row.label }} order"></td>
+            <td><input name="{{ row.key }}_prefix" value="{{ row.prefix }}" maxlength="8" aria-label="{{ row.label }} prefix"></td>
+            <td><input name="{{ row.key }}_suffix" value="{{ row.suffix }}" maxlength="8" aria-label="{{ row.label }} suffix"></td>
+            <td><input type="number" name="{{ row.key }}_importance" value="{{ row.importance }}" min="1" max="9" aria-label="{{ row.label }} importance"></td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="card">
+    <div class="card-header">
+      <div>
+        <h2>Preview</h2>
+        <p class="hint">Updates as you edit. "Longest" has every field at its maximum length.</p>
+      </div>
+    </div>
+    <div hx-post="/guilds/{{ guild.id }}/nickname/preview"
+         hx-trigger="input delay:300ms from:closest form"
+         hx-include="closest form">
+      {% include "nickname_preview.html" %}
+    </div>
+    <div class="card-footer"><button class="btn" type="submit">Save nickname</button></div>
+  </section>
+</form>
+{% endblock %}

@@ -19,6 +19,7 @@ const SESSION_TTL: Duration = Duration::from_secs(7 * 24 * 3600);
 pub struct User {
     pub id: serenity::UserId,
     pub name: String,
+    pub avatar_url: String,
 }
 
 struct Session {
@@ -160,6 +161,23 @@ struct DiscordUser {
     id: serenity::UserId,
     username: String,
     global_name: Option<String>,
+    avatar: Option<String>,
+}
+
+impl DiscordUser {
+    fn avatar_url(&self) -> String {
+        match &self.avatar {
+            Some(hash) => format!(
+                "https://cdn.discordapp.com/avatars/{}/{hash}.png?size=64",
+                self.id
+            ),
+            // Same default avatar Discord shows for users without one
+            None => format!(
+                "https://cdn.discordapp.com/embed/avatars/{}.png",
+                (self.id.get() >> 22) % 6
+            ),
+        }
+    }
 }
 
 pub async fn callback(
@@ -207,6 +225,7 @@ pub async fn callback(
 
     let session = state.sessions.create(User {
         id: discord_user.id,
+        avatar_url: discord_user.avatar_url(),
         name: discord_user.global_name.unwrap_or(discord_user.username),
     });
     let jar = jar.add(oauth.cookie(SESSION_COOKIE, session));

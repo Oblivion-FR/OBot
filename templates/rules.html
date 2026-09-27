@@ -1,0 +1,75 @@
+{% extends "guild_shell.html" %}
+{% import "icons.html" as icons %}
+{% block page %}
+<div class="page-header">
+  <h1>Role rules</h1>
+  <p>Checked on each /verify: a rule's role is given when it matches and removed when it doesn't.</p>
+</div>
+
+<div class="stack">
+  <section class="card">
+    <div class="card-header">
+      <div>
+        <h2>Rules</h2>
+        <p class="hint">{{ rules.len() }} rule{% if rules.len() != 1 %}s{% endif %}</p>
+      </div>
+    </div>
+    {% if rules.is_empty() %}
+    <p class="empty">No rules yet. Add one below.</p>
+    {% else %}
+    <ul class="rule-list">
+      {% for rule in rules %}
+      <li>
+        <span>{{ rule.condition }}</span>
+        <span class="rule-arrow" aria-hidden="true">→</span>
+        <span class="role-chip"><span class="role-dot" style="--role-color: {{ rule.role.color }}"></span>{{ rule.role.name }}</span>
+        <form method="post" action="/guilds/{{ guild.id }}/rules/{{ rule.id }}/delete">
+          <button class="icon-button danger" type="submit" title="Delete rule" aria-label="Delete rule">{% call icons::trash() %}{% endcall %}</button>
+        </form>
+      </li>
+      {% endfor %}
+    </ul>
+    {% endif %}
+  </section>
+
+  <form class="card rule-form" method="post" action="/guilds/{{ guild.id }}/rules">
+    <div class="card-header">
+      <div>
+        <h2>Add a rule</h2>
+        <p class="hint">{% if hypixel_guild.is_none() %}Link a Hypixel guild in Verification to use guild conditions.{% else %}Guild conditions use {{ hypixel_guild.as_deref().unwrap_or_default() }}.{% endif %}</p>
+      </div>
+    </div>
+    <div class="form-grid">
+      <label class="field">When
+        <select name="kind">
+          <option value="hypixel_rank">Hypixel rank is</option>
+          <option value="guild_member">Member of the Hypixel guild</option>
+          <option value="guild_rank">Guild rank is</option>
+        </select>
+      </label>
+      <label class="field for-hypixel-rank">Hypixel rank
+        <select name="rank">
+          {% for (key, label) in ranks %}<option value="{{ key }}">{{ label }}</option>{% endfor %}
+        </select>
+      </label>
+      <label class="field for-guild-rank">Guild rank
+        <select name="guild_rank"{% if guild_ranks.is_empty() %} disabled{% endif %}>
+          {% for rank in guild_ranks %}
+          <option value="{{ rank }}">{{ rank }}</option>
+          {% else %}
+          <option value="">{% if guild_ranks_error %}Couldn't load ranks from Hypixel{% else if hypixel_guild.is_none() %}Link a Hypixel guild first{% else %}No ranks found{% endif %}</option>
+          {% endfor %}
+        </select>
+      </label>
+      <label class="field">Give role
+        <select name="role_id">
+          {% for role in roles %}
+          <option value="{{ role.id }}"{% if !role.assignable %} disabled{% endif %}>@{{ role.name }}</option>
+          {% endfor %}
+        </select>
+      </label>
+    </div>
+    <div class="card-footer"><button class="btn" type="submit">{% call icons::plus() %}{% endcall %} Add rule</button></div>
+  </form>
+</div>
+{% endblock %}
