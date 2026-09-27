@@ -77,6 +77,9 @@ fn frame_renders_rail_and_sidebar() {
     // Footer: the version, its commit and the repository
     assert!(html.contains(&format!("OBot v{}", crate::version::NUMBER)));
     assert!(html.contains(r#"<a href="https://github.com/Oblivion-FR/OBot" target="_blank""#));
+    assert!(
+        html.contains(r#"href="https://github.com/Oblivion-FR/OBot/blob/main/docs/privacy.md""#)
+    );
     if let Some(url) = crate::version::commit_url() {
         assert!(html.contains(&format!(r#"<a href="{url}""#)));
     }
@@ -157,6 +160,7 @@ fn verification_page_renders_in_french() {
     assert!(html.contains("Tu ne peux choisir que des rôles en dessous de ton rôle le plus haut."));
     assert!(html.contains("1 sur 2 vérifiés"));
     assert!(html.contains("Vérifié par un admin"));
+    assert!(html.contains("/blob/main/docs/fr/confidentialite.md"));
     assert!(html.contains(
         r#"<button type="submit" name="lang" value="fr" title="Français" class="active""#
     ));

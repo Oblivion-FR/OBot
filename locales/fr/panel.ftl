@@ -13,6 +13,10 @@ rail-add = Ajouter OBot à un serveur
 log-out = Se déconnecter
 language = Langue
 footer-source = Code source
+footer-privacy = Confidentialité
+footer-terms = Conditions d'utilisation
+footer-privacy-path = docs/fr/confidentialite.md
+footer-terms-path = docs/fr/conditions-utilisation.md
 unknown-commit = inconnu
 
 ## Accueil

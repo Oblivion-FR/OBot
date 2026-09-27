@@ -13,6 +13,11 @@ rail-add = Add OBot to a server
 log-out = Log out
 language = Language
 footer-source = Source
+footer-privacy = Privacy
+footer-terms = Terms
+# Paths in the repository of the documents in this language
+footer-privacy-path = docs/privacy.md
+footer-terms-path = docs/terms.md
 unknown-commit = unknown
 
 ## Home

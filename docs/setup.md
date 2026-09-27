@@ -21,6 +21,11 @@ application and:
 3. **OAuth2** → copy the **Client Secret**, it's `DISCORD_CLIENT_SECRET`.
 4. **OAuth2 → Redirects** → add `<PANEL_URL>/callback`, for example
    `http://127.0.0.1:8081/callback`. The panel's Discord login fails otherwise.
+5. **General Information** → set the **Terms of Service URL** and **Privacy Policy URL**. Discord
+   asks for them before a bot can be verified. The [terms](terms.md) and
+   [privacy policy](privacy.md) in this repository are written for the official instance, run
+   by Oblivion FR: on your own instance, you are the operator, so publish your own version with
+   your name and contact.
 
 ## Hypixel API key
 

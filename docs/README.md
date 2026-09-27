@@ -13,3 +13,10 @@ Everything is configured per server from a web panel.
 - [Using the panel](panel.md): verification, role rules, nicknames and member management
 - [Architecture](architecture.md): how the code is organized
 - [Contributing](CONTRIBUTING.md): development workflow and conventions
+
+## Legal
+
+- [Privacy policy](privacy.md) · [Politique de confidentialité](fr/confidentialite.md)
+- [Terms of service](terms.md) · [Conditions d'utilisation](fr/conditions-utilisation.md)
+
+OBot isn't affiliated with Mojang, Microsoft, Hypixel or Discord.
