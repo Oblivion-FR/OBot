@@ -137,7 +137,11 @@ Builds members' nicknames from their Hypixel data, for example `[MVP+] Notch [OF
 - **Texts per rank** changes the prefix, label or suffix of a single Hypixel rank or guild rank,
   like `★MVP++★` or a crown instead of `[GM]`. The inputs show the current texts: change only
   the parts you want, the others keep following the field's defaults. An emptied part shows
-  nothing, and "No rank" can get a label so players without a rank show one too.
+  nothing, and "No rank" can get a label so players without a rank show one too. "No rank" has
+  no brackets by default.
+- Each rank has two buttons: one puts back the field's texts, the other hides the rank so it
+  shows nothing, brackets included. **Reset all** puts back the field's texts for a whole table.
+  The **Custom** badge shows which ranks differ from the field; nothing is saved until you save.
 - Discord nicknames are limited to 32 characters: above that, the field with the highest
   importance number is dropped first.
 - The preview updates as you edit.

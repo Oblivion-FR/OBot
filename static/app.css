@@ -476,8 +476,11 @@ table.segments td:nth-child(2) { font-weight: 500; white-space: nowrap; }
 table.segments input[type="number"] { width: 70px; }
 table.segments input:not([type]) { width: 80px; }
 table.segments input.wide { width: 140px; }
-.value-table-title { font-size: 14px; margin: 16px 0 8px; }
-.value-table-title:first-of-type { margin-top: 0; }
+.value-table-header { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: 16px 0 8px; }
+[data-value-table]:first-of-type .value-table-header { margin-top: 0; }
+.value-table-title { font-size: 14px; }
+.text-actions { display: flex; gap: 2px; }
+.badge[hidden] { display: none; }
 .switch.compact { gap: 0; }
 
 .preview-line { display: flex; gap: 12px; align-items: baseline; flex-wrap: wrap; padding: 6px 0; }

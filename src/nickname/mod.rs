@@ -95,7 +95,8 @@ pub struct NicknameFormat {
 }
 
 impl Default for NicknameFormat {
-    /// `[<Hypixel rank>] <IGN> [<Guild rank tag>]`, disabled until an admin turns it on
+    /// `[<Hypixel rank>] <IGN> [<Guild rank tag>]`, disabled until an admin turns it on. Players
+    /// without a rank show nothing, and without brackets once given a label.
     fn default() -> Self {
         let segment = |field, enabled, prefix: &str, suffix: &str, importance| Segment {
             field,
@@ -113,8 +114,21 @@ impl Default for NicknameFormat {
                 segment(Field::GuildRankTag, true, "[", "]", 3),
                 segment(Field::GuildTag, false, "[", "]", 4),
             ],
-            custom_texts: Vec::new(),
+            custom_texts: vec![no_rank_text()],
         }
+    }
+}
+
+/// No brackets for players without a rank: a custom text, so it can be reset like any other
+pub fn no_rank_text() -> CustomText {
+    CustomText {
+        field: Field::HypixelRank,
+        value: crate::hypixel::NO_RANK.to_owned(),
+        text: ValueText {
+            prefix: Some(String::new()),
+            label: None,
+            suffix: Some(String::new()),
+        },
     }
 }
 

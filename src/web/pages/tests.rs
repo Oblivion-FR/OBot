@@ -273,6 +273,9 @@ fn nickname_page_renders_fields_texts_and_preview() {
         "custom texts show in the preview"
     );
     assert!(html.contains(r#"name="nickname_enabled" checked"#));
+    assert!(html.contains("data-reset-table"));
+    assert!(html.contains(r#"<tr data-value-row>"#));
+    assert!(html.contains("data-reset-text") && html.contains("data-hide-text"));
 
     // Hypixel ranks: NO_RANK first, with no default label; SUPERSTAR is row 5
     assert!(html.contains(r#"name="text_hypixel_rank_0_value" value="NO_RANK""#));
@@ -406,4 +409,40 @@ fn messages_page_renders_language_and_channels() {
     assert!(html.contains(r#"href="/guilds/2/messages" class="active""#));
     assert!(html.contains("The verify message was posted."));
     assert!(html.contains(r#"action="/guilds/2/verify-message""#));
+}
+
+#[test]
+fn no_rank_starts_custom_without_brackets() {
+    let tables = value_tables(Lang::En, &NicknameFormat::default(), Ok(Vec::new()));
+    let no_rank = &tables[0].rows[0];
+    assert_eq!(no_rank.value, hypixel::NO_RANK);
+    assert_eq!((no_rank.prefix.as_str(), no_rank.suffix.as_str()), ("", ""));
+    assert_eq!(
+        no_rank.default_prefix, "[",
+        "reset goes back to the field's brackets"
+    );
+    assert!(no_rank.custom);
+}
+
+#[tokio::test]
+async fn a_reset_no_rank_stays_reset() {
+    let db = config::connect_in_memory().await;
+    let guild_id = serenity::GuildId::new(2);
+    let format = config::get_nickname_format(&db, guild_id).await.unwrap();
+    assert!(
+        format
+            .custom_text(Field::HypixelRank, hypixel::NO_RANK)
+            .is_some(),
+        "a server that never saved gets the default texts"
+    );
+
+    let reset = NicknameFormat {
+        custom_texts: Vec::new(),
+        ..format
+    };
+    config::set_nickname_format(&db, guild_id, &reset)
+        .await
+        .unwrap();
+    let saved = config::get_nickname_format(&db, guild_id).await.unwrap();
+    assert!(saved.custom_texts.is_empty());
 }

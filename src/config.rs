@@ -408,6 +408,7 @@ pub async fn get_nickname_format(
     .bind(to_db(guild_id))
     .fetch_all(db)
     .await?;
+    let saved = !rows.is_empty();
     let mut segments: Vec<Segment> = rows
         .into_iter()
         .filter_map(|(field, enabled, prefix, suffix, importance)| {
@@ -437,6 +438,10 @@ pub async fn get_nickname_format(
     .bind(to_db(guild_id))
     .fetch_all(db)
     .await?;
+    // A server that never saved its format keeps the default texts
+    if !saved {
+        return Ok(format);
+    }
     format.custom_texts = texts
         .into_iter()
         .filter_map(|(field, value, prefix, label, suffix)| {

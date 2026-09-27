@@ -156,3 +156,14 @@ fn a_custom_label_shows_values_that_have_none() {
     )];
     assert_eq!(format.render(&player), "[Guest] Notch");
 }
+
+#[test]
+fn no_rank_has_no_brackets_by_default() {
+    let format = NicknameFormat::default();
+    let text = format
+        .custom_text(Field::HypixelRank, "NO_RANK")
+        .expect("no rank starts with a custom text");
+    assert_eq!(text.prefix.as_deref(), Some(""));
+    assert_eq!(text.label, None, "still shows nothing until given a label");
+    assert_eq!(text.suffix.as_deref(), Some(""));
+}

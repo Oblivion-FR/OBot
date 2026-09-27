@@ -228,3 +228,34 @@ document.addEventListener("click", (event) => {
     form.submit();
   });
 })();
+
+// Nickname texts per rank: back to the field's texts, or nothing shown, then a fresh preview.
+// The Custom badge follows whether the texts differ from the field's.
+(() => {
+  const parts = ["prefix", "label", "suffix"];
+  const input = (row, part) => row.querySelector(`input[name$="_${part}"]:not([type=hidden])`);
+  const fallback = (row, part) => row.querySelector(`input[name$="_default_${part}"]`).value;
+  const refresh = (row) => {
+    const custom = parts.some((part) => input(row, part).value !== fallback(row, part));
+    row.querySelector("[data-custom-badge]").hidden = !custom;
+  };
+
+  document.addEventListener("click", (event) => {
+    const button = event.target.closest("[data-reset-text], [data-hide-text], [data-reset-table]");
+    if (!button) return;
+    const rows = button.matches("[data-reset-table]")
+      ? [...button.closest("[data-value-table]").querySelectorAll("[data-value-row]")]
+      : [button.closest("[data-value-row]")];
+    const hide = button.matches("[data-hide-text]");
+    for (const row of rows) {
+      for (const part of parts) input(row, part).value = hide ? "" : fallback(row, part);
+      refresh(row);
+    }
+    // The preview listens for input on the form
+    rows[0]?.dispatchEvent(new Event("input", { bubbles: true }));
+  });
+  document.addEventListener("input", (event) => {
+    const row = event.target.closest?.("[data-value-row]");
+    if (row) refresh(row);
+  });
+})();

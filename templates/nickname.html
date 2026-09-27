@@ -1,4 +1,5 @@
 {% extends "guild_shell.html" %}
+{% import "icons.html" as icons %}
 {% block page %}
 <div class="page-header">
   <h1>{{ lang.t("nav-nickname") }}</h1>
@@ -57,18 +58,22 @@
       </div>
     </div>
     {% for table in value_tables %}
-    <h3 class="value-table-title">{{ lang.t(table.title) }}</h3>
+    <div data-value-table>
+    <div class="value-table-header">
+      <h3 class="value-table-title">{{ lang.t(table.title) }}</h3>
+      {% if table.note.is_none() %}<button class="btn small secondary" type="button" data-reset-table>{{ lang.t("reset-all-texts") }}</button>{% endif %}
+    </div>
     {% if let Some(note) = table.note %}
     <p class="hint">{{ lang.t(note) }}</p>
     {% else %}
     <div class="table-scroll">
       <table class="segments value-texts">
         <thead>
-          <tr><th>{{ lang.t("rank") }}</th><th>{{ lang.t("field-prefix") }}</th><th>{{ lang.t("label") }}</th><th>{{ lang.t("field-suffix") }}</th><th><span class="visually-hidden">{{ lang.t("custom") }}</span></th></tr>
+          <tr><th>{{ lang.t("rank") }}</th><th>{{ lang.t("field-prefix") }}</th><th>{{ lang.t("label") }}</th><th>{{ lang.t("field-suffix") }}</th><th><span class="visually-hidden">{{ lang.t("custom") }}</span></th><th><span class="visually-hidden">{{ lang.t("text-actions") }}</span></th></tr>
         </thead>
         <tbody>
           {% for row in table.rows %}
-          <tr>
+          <tr data-value-row>
             <td>
               {{ row.name }}
               <input type="hidden" name="text_{{ table.key }}_{{ loop.index0 }}_value" value="{{ row.value }}">
@@ -79,13 +84,18 @@
             <td><input name="text_{{ table.key }}_{{ loop.index0 }}_prefix" value="{{ row.prefix }}" maxlength="8" aria-label="{{ row.name }} · {{ lang.t("field-prefix") }}"></td>
             <td><input class="wide" name="text_{{ table.key }}_{{ loop.index0 }}_label" value="{{ row.label }}" maxlength="32" placeholder="{{ lang.t("label-none") }}" aria-label="{{ row.name }} · {{ lang.t("label") }}"></td>
             <td><input name="text_{{ table.key }}_{{ loop.index0 }}_suffix" value="{{ row.suffix }}" maxlength="8" aria-label="{{ row.name }} · {{ lang.t("field-suffix") }}"></td>
-            <td>{% if row.custom %}<span class="badge ok">{{ lang.t("custom") }}</span>{% endif %}</td>
+            <td><span class="badge ok" data-custom-badge{% if !row.custom %} hidden{% endif %}>{{ lang.t("custom") }}</span></td>
+            <td class="text-actions">
+              <button class="icon-button" type="button" data-reset-text title="{{ lang.t("reset-text") }}" aria-label="{{ lang.t("reset-text") }} · {{ row.name }}">{% call icons::reset() %}{% endcall %}</button>
+              <button class="icon-button" type="button" data-hide-text title="{{ lang.t("hide-text") }}" aria-label="{{ lang.t("hide-text") }} · {{ row.name }}">{% call icons::eye_off() %}{% endcall %}</button>
+            </td>
           </tr>
           {% endfor %}
         </tbody>
       </table>
     </div>
     {% endif %}
+    </div>
     {% endfor %}
   </section>
 
