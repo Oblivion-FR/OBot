@@ -219,10 +219,11 @@ impl AppState {
         })
     }
 
-    async fn authorize(&self, guild_id: NonZeroU64, user: &User) -> Result<Access, Response> {
+    /// Without access, pages send the user back home
+    async fn authorize(&self, guild_id: NonZeroU64, user: &User) -> Result<Access, Redirect> {
         self.access(serenity::GuildId::from(guild_id), user.id)
             .await
-            .ok_or_else(|| Redirect::to("/").into_response())
+            .ok_or_else(|| Redirect::to("/"))
     }
 
     fn guild_summary(&self, guild_id: serenity::GuildId) -> Option<GuildSummary> {

@@ -52,11 +52,11 @@ async fn guild_context(
     state: &AppState,
     user: User,
     guild_id: NonZeroU64,
-) -> Result<GuildContext, Response> {
+) -> Result<GuildContext, Redirect> {
     let access = state.authorize(guild_id, &user).await?;
     let guild = state
         .guild_summary(access.guild_id)
-        .ok_or_else(|| Redirect::to("/").into_response())?;
+        .ok_or_else(|| Redirect::to("/"))?;
     let shell = state.shell(user, Some(access.guild_id)).await;
     Ok(GuildContext {
         access,
@@ -65,12 +65,12 @@ async fn guild_context(
     })
 }
 
-/// Unwraps a `Result<_, Response>`, returning the response (a redirect) from the handler on error
+/// Unwraps a `Result<_, Redirect>`, returning the redirect from the handler on error
 macro_rules! or_respond {
     ($result:expr) => {
         match $result {
             Ok(value) => value,
-            Err(response) => return Ok(response),
+            Err(redirect) => return Ok(redirect.into_response()),
         }
     };
 }
