@@ -35,6 +35,20 @@ fn parse_id(name: &str, value: &str) -> Result<NonZeroU64, Error> {
         .map_err(|_| format!("`{name}` must be a Discord ID, got `{value}`").into())
 }
 
+/// A rejected token would otherwise show up as a raw HTTP error dump
+fn token_error(error: serenity::Error) -> Error {
+    match &error {
+        serenity::Error::Http(http)
+            if http
+                .status_code()
+                .is_some_and(|status| status.as_u16() == 401) =>
+        {
+            "Discord rejected `DISCORD_TOKEN`: check the bot token of this environment".into()
+        }
+        _ => error.into(),
+    }
+}
+
 #[tokio::main]
 async fn main() -> Result<(), Error> {
     let mode = env_files::mode(var("OBOT_ENV").ok())?;
@@ -89,6 +103,14 @@ async fn main() -> Result<(), Error> {
         .framework(framework)
         .await?;
 
+    // The first call to Discord, so a wrong token is reported here
+    let application_id = client
+        .http
+        .get_current_application_info()
+        .await
+        .map_err(token_error)?
+        .id;
+
     let panel = web::router(web::AppState {
         db,
         cache: client.cache.clone(),
@@ -96,7 +118,7 @@ async fn main() -> Result<(), Error> {
         http_client: http,
         hypixel,
         oauth: web::OAuthConfig {
-            client_id: client.http.get_current_application_info().await?.id,
+            client_id: application_id,
             client_secret,
             public_url: panel_url.trim_end_matches('/').to_owned(),
         },
