@@ -5,6 +5,8 @@
   <p>{{ lang.t("messages-intro") }}</p>
 </div>
 
+{% if posted %}<div class="alert ok" role="status">{{ lang.t("notice-verify-message-posted") }}</div>{% endif %}
+
 <div class="stack">
   <form class="card" method="post" action="/guilds/{{ guild.id }}/messages">
     <div class="card-header">
@@ -32,6 +34,25 @@
     </div>
     <p class="hint">{{ lang.t("log-channel-hint") }}</p>
     <div class="card-footer"><button class="btn" type="submit">{{ lang.t("save-messages") }}</button></div>
+  </form>
+
+  <form class="card" method="post" action="/guilds/{{ guild.id }}/verify-message">
+    <div class="card-header">
+      <div>
+        <h2>{{ lang.t("verify-button-card") }}</h2>
+        <p class="hint">{{ lang.t("verify-button-hint") }}</p>
+      </div>
+    </div>
+    <div class="form-grid">
+      <label class="field">{{ lang.t("verify-button-channel") }}
+        <select name="channel_id">
+          {% for channel in channels %}
+          <option value="{{ channel.id }}"{% if !channel.sendable %} disabled{% endif %}>#{{ channel.name }}</option>
+          {% endfor %}
+        </select>
+      </label>
+    </div>
+    <div class="card-footer"><button class="btn" type="submit">{{ lang.t("post-verify-message") }}</button></div>
   </form>
 </div>
 {% endblock %}

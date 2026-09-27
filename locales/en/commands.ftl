@@ -63,3 +63,15 @@ log-removed = Removed { $roles }
 log-nickname-set = nickname `{ $nickname }`
 log-nickname-reset = nickname reset
 log-nickname-skipped = ⚠️ nickname `{ $nickname }` not set: { $reason }
+
+## The verify button's message, in the server's language, and its form, in the member's
+
+verify-message =
+    ## Verification
+    Link your Minecraft account to get your roles.
+    1. On Hypixel, open your profile → Social Media → Discord, and enter your Discord username.
+    2. Click **{ verify-button }** below and enter your Minecraft username.
+verify-button = Verify
+verify-modal-title = Verification
+verify-modal-username = Minecraft username
+verify-failed = Something went wrong, try again in a moment.

@@ -75,6 +75,10 @@ pub fn router(state: AppState) -> Router {
             get(pages::messages).post(pages::save_messages),
         )
         .route(
+            "/guilds/{guild_id}/verify-message",
+            post(pages::post_verify_message),
+        )
+        .route(
             "/guilds/{guild_id}/members/{user_id}/reverify",
             post(members::reverify),
         )

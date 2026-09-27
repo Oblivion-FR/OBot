@@ -368,6 +368,7 @@ fn messages_page_renders_language_and_channels() {
             channel(31, "announcements", false),
         ],
         log_channel_id: Some(serenity::ChannelId::new(30)),
+        posted: true,
     }
     .render()
     .expect("template renders");
@@ -377,4 +378,6 @@ fn messages_page_renders_language_and_channels() {
     assert!(html.contains(r#"<option value="31" disabled>#announcements</option>"#));
     assert!(html.contains("send messages in this channel."));
     assert!(html.contains(r#"href="/guilds/2/messages" class="active""#));
+    assert!(html.contains("The verify message was posted."));
+    assert!(html.contains(r#"action="/guilds/2/verify-message""#));
 }

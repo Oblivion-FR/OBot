@@ -8,25 +8,26 @@ cache and HTTP client, and the Hypixel client.
 
 ## Modules
 
-| Module                                       | Role                                                                                      |
-|----------------------------------------------|-------------------------------------------------------------------------------------------|
-| [`commands`](../src/commands.rs)             | Slash commands: `/verify`, `/whois`, `/version`, `/healthcheck`                           |
-| [`verification`](../src/verification/mod.rs) | Verification logic shared by `/verify` and the panel: ownership check,                    |
-|                                              | role and nickname sync, removal, one account per member                                   |
-| [`server_log`](../src/server_log/mod.rs)     | Posts verifications and member actions in the server's log channel                        |
-| [`resync`](../src/resync/mod.rs)             | Refreshes every verified member on a schedule (`RESYNC_INTERVAL_HOURS`)                   |
-| [`hypixel`](../src/hypixel/mod.rs)           | Hypixel and Mojang API types, and the shared [`Hypixel` client](../src/hypixel/client.rs) |
-|                                              | with its [rate limiter](../src/hypixel/limit/mod.rs)                                      |
-| [`nickname`](../src/nickname/mod.rs)         | Nickname format and rendering                                                             |
-| [`version`](../src/version/mod.rs)           | Version and commit of the build (set by `build.rs`), with links to the repository         |
-| [`env_files`](../src/env_files/mod.rs)       | Loads `.env` files for the current mode (`OBOT_ENV`)                                      |
-| [`config`](../src/config.rs)                 | Database access: server settings, rules, nickname format, verified members                |
-| [`cache`](../src/cache.rs)                   | Small time-limited cache used by the panel and the Hypixel client                         |
-| [`i18n`](../src/i18n/mod.rs)                 | Translations of the panel and the commands, from the Fluent files in `locales/`           |
-| [`web`](../src/web/mod.rs)                   | Panel router, shared state, access checks                                                 |
-| [`web::auth`](../src/web/auth.rs)            | Discord OAuth2 login and sessions                                                         |
-| [`web::pages`](../src/web/pages/mod.rs)      | Panel pages and their forms                                                               |
-| [`web::members`](../src/web/members/mod.rs)  | Member table and member actions (re-verify, verify, remove)                               |
+| Module                                         | Role                                                                                      |
+|------------------------------------------------|-------------------------------------------------------------------------------------------|
+| [`commands`](../src/commands.rs)               | Slash commands: `/verify`, `/whois`, `/version`, `/healthcheck`                           |
+| [`verification`](../src/verification/mod.rs)   | Verification logic shared by `/verify` and the panel: ownership check,                    |
+|                                                | role and nickname sync, removal, one account per member                                   |
+| [`server_log`](../src/server_log/mod.rs)       | Posts verifications and member actions in the server's log channel                        |
+| [`verify_button`](../src/verify_button/mod.rs) | The Verify button message and the form it opens, which verifies like `/verify`            |
+| [`resync`](../src/resync/mod.rs)               | Refreshes every verified member on a schedule (`RESYNC_INTERVAL_HOURS`)                   |
+| [`hypixel`](../src/hypixel/mod.rs)             | Hypixel and Mojang API types, and the shared [`Hypixel` client](../src/hypixel/client.rs) |
+|                                                | with its [rate limiter](../src/hypixel/limit/mod.rs)                                      |
+| [`nickname`](../src/nickname/mod.rs)           | Nickname format and rendering                                                             |
+| [`version`](../src/version/mod.rs)             | Version and commit of the build (set by `build.rs`), with links to the repository         |
+| [`env_files`](../src/env_files/mod.rs)         | Loads `.env` files for the current mode (`OBOT_ENV`)                                      |
+| [`config`](../src/config.rs)                   | Database access: server settings, rules, nickname format, verified members                |
+| [`cache`](../src/cache.rs)                     | Small time-limited cache used by the panel and the Hypixel client                         |
+| [`i18n`](../src/i18n/mod.rs)                   | Translations of the panel and the commands, from the Fluent files in `locales/`           |
+| [`web`](../src/web/mod.rs)                     | Panel router, shared state, access checks                                                 |
+| [`web::auth`](../src/web/auth/mod.rs)          | Discord OAuth2 login and sessions                                                         |
+| [`web::pages`](../src/web/pages/mod.rs)        | Panel pages and their forms                                                               |
+| [`web::members`](../src/web/members/mod.rs)    | Member table and member actions (re-verify, verify, remove)                               |
 
 ## Web panel
 

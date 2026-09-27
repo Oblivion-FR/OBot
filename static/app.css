@@ -337,6 +337,7 @@ a.card:hover { border-color: var(--accent); transform: translateY(-1px); }
   color: var(--danger);
   font-weight: 500;
 }
+.alert.ok { background: var(--success-soft); color: var(--success); }
 
 .empty { padding: 24px; text-align: center; color: var(--muted); }
 

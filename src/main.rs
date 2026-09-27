@@ -8,6 +8,7 @@ mod nickname;
 mod resync;
 mod server_log;
 mod verification;
+mod verify_button;
 mod version;
 mod web;
 
@@ -91,6 +92,13 @@ async fn main() -> Result<(), Error> {
     let framework = poise::Framework::builder()
         .options(poise::FrameworkOptions {
             commands,
+            event_handler: |framework, event| {
+                Box::pin(verify_button::handle(
+                    framework.serenity_context,
+                    event,
+                    framework.user_data,
+                ))
+            },
             ..Default::default()
         })
         .setup({

@@ -63,3 +63,15 @@ log-removed = Retiré : { $roles }
 log-nickname-set = pseudo `{ $nickname }`
 log-nickname-reset = pseudo réinitialisé
 log-nickname-skipped = ⚠️ pseudo `{ $nickname }` non appliqué : { $reason }
+
+## Le message du bouton de vérification, dans la langue du serveur, et son formulaire, dans celle du membre
+
+verify-message =
+    ## Vérification
+    Lie ton compte Minecraft pour obtenir tes rôles.
+    1. Sur Hypixel, ouvre ton profil → Social Media → Discord, et entre ton nom d'utilisateur Discord.
+    2. Clique sur **{ verify-button }** ci-dessous et entre ton pseudo Minecraft.
+verify-button = Vérifier
+verify-modal-title = Vérification
+verify-modal-username = Pseudo Minecraft
+verify-failed = Une erreur est survenue, réessaie dans un instant.

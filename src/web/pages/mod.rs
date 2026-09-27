@@ -99,6 +99,7 @@ fn error_message(code: &str) -> Option<&'static str> {
         "missing_group_name" => "error-missing-group-name",
         "unknown_group" => "error-unknown-group",
         "channel_not_sendable" => "error-channel-not-sendable",
+        "post_failed" => "error-post-failed",
         _ => return None,
     })
 }
@@ -933,6 +934,15 @@ struct MessagesPage {
     server_language: Lang,
     channels: Vec<ChannelOption>,
     log_channel_id: Option<serenity::ChannelId>,
+    /// The verify message was just posted
+    posted: bool,
+}
+
+#[derive(Deserialize)]
+pub struct MessagesParams {
+    error: Option<String>,
+    #[serde(default)]
+    posted: bool,
 }
 
 pub async fn messages(
@@ -940,7 +950,7 @@ pub async fn messages(
     LoggedIn(user): LoggedIn,
     PanelLang(lang): PanelLang,
     Path(guild_id): Path<NonZeroU64>,
-    Query(params): Query<PageParams>,
+    Query(params): Query<MessagesParams>,
 ) -> Result<Response, AppError> {
     let ctx = or_respond!(guild_context(&state, user, guild_id).await);
     let config = config::get_config(&state.db, ctx.access.guild_id).await?;
@@ -954,6 +964,7 @@ pub async fn messages(
         error: params.error.as_deref().and_then(error_message),
         server_language: config.language,
         log_channel_id: config.log_channel_id,
+        posted: params.posted,
     })
 }
 
@@ -1003,6 +1014,42 @@ pub async fn save_messages(
         .await;
     }
     Ok(section_redirect(guild_id, "/messages", None))
+}
+
+#[derive(Deserialize)]
+pub struct VerifyMessageForm {
+    #[serde(default)]
+    channel_id: String,
+}
+
+pub async fn post_verify_message(
+    State(state): State<Arc<AppState>>,
+    LoggedIn(user): LoggedIn,
+    Path(guild_id): Path<NonZeroU64>,
+    Form(form): Form<VerifyMessageForm>,
+) -> Result<Response, AppError> {
+    let access = or_respond!(state.authorize(guild_id, &user).await);
+    let guild_id = access.guild_id;
+    let Some(channel_id) = form
+        .channel_id
+        .parse::<NonZeroU64>()
+        .ok()
+        .map(serenity::ChannelId::from)
+        .filter(|channel_id| state.is_sendable_channel(guild_id, *channel_id))
+    else {
+        return Ok(section_redirect(
+            guild_id,
+            "/messages",
+            Some("channel_not_sendable"),
+        ));
+    };
+    let config = config::get_config(&state.db, guild_id).await?;
+    let message = crate::verify_button::message(config.language);
+    if let Err(error) = channel_id.send_message(&state.discord, message).await {
+        eprintln!("Could not post the verify message in {channel_id}: {error}");
+        return Ok(section_redirect(guild_id, "/messages", Some("post_failed")));
+    }
+    Ok(Redirect::to(&format!("/guilds/{guild_id}/messages?posted=true")).into_response())
 }
 
 #[cfg(test)]

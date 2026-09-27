@@ -59,6 +59,10 @@ What OBot posts in the server, and in which language.
   refused `/verify` except unknown usernames, re-verifications and removals from the panel, and
   scheduled refreshes that changed something. Mentions in it don't ping anyone. Picking a
   channel posts a first message, which shows the bot can write there.
+- **Verify button**: posts a message explaining how to verify, with a **Verify** button. A
+  member who clicks it enters their Minecraft username in a form, and it works exactly like
+  `/verify`. The message is in the server language, the form and its reply in the member's.
+  Posting again adds a new message; older ones keep working until you delete them in Discord.
 
 ### Verification
 
