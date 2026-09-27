@@ -281,3 +281,128 @@ pub async fn set_nickname_format(
     transaction.commit().await?;
     Ok(())
 }
+
+pub struct VerifiedMember {
+    pub minecraft_uuid: String,
+    pub minecraft_name: String,
+    /// Unix time in seconds of the last verification
+    pub verified_at: i64,
+    pub forced_by: Option<serenity::UserId>,
+}
+
+type VerifiedMemberRow = (i64, String, String, i64, Option<i64>);
+
+fn user_from_db(id: i64) -> Option<serenity::UserId> {
+    std::num::NonZeroU64::new(id as u64).map(serenity::UserId::from)
+}
+
+fn verified_member_from_row(row: VerifiedMemberRow) -> Option<(serenity::UserId, VerifiedMember)> {
+    let (user_id, minecraft_uuid, minecraft_name, verified_at, forced_by) = row;
+    Some((
+        user_from_db(user_id)?,
+        VerifiedMember {
+            minecraft_uuid,
+            minecraft_name,
+            verified_at,
+            forced_by: forced_by.and_then(user_from_db),
+        },
+    ))
+}
+
+pub async fn record_verification(
+    db: &SqlitePool,
+    guild_id: serenity::GuildId,
+    user_id: serenity::UserId,
+    minecraft_uuid: &str,
+    minecraft_name: &str,
+    forced_by: Option<serenity::UserId>,
+) -> Result<(), Error> {
+    let now = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map_or(0, |elapsed| elapsed.as_secs() as i64);
+    sqlx::query(
+        "INSERT INTO verified_member
+             (guild_id, user_id, minecraft_uuid, minecraft_name, verified_at, forced_by)
+         VALUES (?, ?, ?, ?, ?, ?)
+         ON CONFLICT (guild_id, user_id) DO UPDATE SET
+             minecraft_uuid = excluded.minecraft_uuid,
+             minecraft_name = excluded.minecraft_name,
+             verified_at = excluded.verified_at,
+             forced_by = excluded.forced_by",
+    )
+    .bind(to_db(guild_id))
+    .bind(to_db(user_id))
+    .bind(minecraft_uuid)
+    .bind(minecraft_name)
+    .bind(now)
+    .bind(forced_by.map(to_db))
+    .execute(db)
+    .await?;
+    Ok(())
+}
+
+pub async fn get_verified_member(
+    db: &SqlitePool,
+    guild_id: serenity::GuildId,
+    user_id: serenity::UserId,
+) -> Result<Option<VerifiedMember>, Error> {
+    let row: Option<VerifiedMemberRow> = sqlx::query_as(
+        "SELECT user_id, minecraft_uuid, minecraft_name, verified_at, forced_by
+         FROM verified_member
+         WHERE guild_id = ? AND user_id = ?",
+    )
+    .bind(to_db(guild_id))
+    .bind(to_db(user_id))
+    .fetch_optional(db)
+    .await?;
+    Ok(row
+        .and_then(verified_member_from_row)
+        .map(|(_, member)| member))
+}
+
+pub async fn list_verified_members(
+    db: &SqlitePool,
+    guild_id: serenity::GuildId,
+) -> Result<std::collections::HashMap<serenity::UserId, VerifiedMember>, Error> {
+    let rows: Vec<VerifiedMemberRow> = sqlx::query_as(
+        "SELECT user_id, minecraft_uuid, minecraft_name, verified_at, forced_by
+         FROM verified_member
+         WHERE guild_id = ?",
+    )
+    .bind(to_db(guild_id))
+    .fetch_all(db)
+    .await?;
+    Ok(rows
+        .into_iter()
+        .filter_map(verified_member_from_row)
+        .collect())
+}
+
+/// The member linked to a Minecraft account in this guild
+pub async fn find_account_owner(
+    db: &SqlitePool,
+    guild_id: serenity::GuildId,
+    minecraft_uuid: &str,
+) -> Result<Option<serenity::UserId>, Error> {
+    let user_id: Option<i64> = sqlx::query_scalar(
+        "SELECT user_id FROM verified_member WHERE guild_id = ? AND minecraft_uuid = ?",
+    )
+    .bind(to_db(guild_id))
+    .bind(minecraft_uuid)
+    .fetch_optional(db)
+    .await?;
+    Ok(user_id.and_then(user_from_db))
+}
+
+pub async fn delete_verification(
+    db: &SqlitePool,
+    guild_id: serenity::GuildId,
+    user_id: serenity::UserId,
+) -> Result<(), Error> {
+    sqlx::query("DELETE FROM verified_member WHERE guild_id = ? AND user_id = ?")
+        .bind(to_db(guild_id))
+        .bind(to_db(user_id))
+        .execute(db)
+        .await?;
+    Ok(())
+}

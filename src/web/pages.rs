@@ -1,6 +1,7 @@
 use askama::Template;
 use axum::extract::{Form, Path, Query, State};
 use axum::response::{Html, IntoResponse, Redirect, Response};
+use axum_extra::extract::CookieJar;
 use poise::serenity_prelude as serenity;
 use serde::Deserialize;
 use std::collections::HashMap;
@@ -8,6 +9,7 @@ use std::num::NonZeroU64;
 use std::sync::Arc;
 
 use super::auth::{LoggedIn, MaybeLoggedIn, User};
+use super::members::{self, MembersTable};
 use super::{Access, AppError, AppState, GuildSummary, RoleChip, RoleOption, Shell};
 use crate::config::{self, HypixelGuildLink, RuleKind};
 use crate::hypixel::{self, GuildQuery};
@@ -161,16 +163,33 @@ struct VerificationPage {
     verified_role_id: Option<serenity::RoleId>,
     unverified_role_id: Option<serenity::RoleId>,
     hypixel_guild: Option<String>,
+    guild_id: serenity::GuildId,
+    members: MembersTable,
+}
+
+#[derive(Deserialize)]
+pub struct VerificationParams {
+    error: Option<String>,
+    #[serde(flatten)]
+    table: members::TableParams,
 }
 
 pub async fn verification(
     State(state): State<Arc<AppState>>,
     LoggedIn(user): LoggedIn,
     Path(guild_id): Path<NonZeroU64>,
-    Query(params): Query<PageParams>,
+    Query(params): Query<VerificationParams>,
+    cookies: CookieJar,
 ) -> Result<Response, AppError> {
     let ctx = or_respond!(guild_context(&state, user, guild_id).await);
-    let config = config::get_config(&state.db, ctx.access.guild_id).await?;
+    let guild_id = ctx.access.guild_id;
+    let config = config::get_config(&state.db, guild_id).await?;
+    let hidden = members::hidden_columns(
+        cookies
+            .get(members::HIDDEN_COLUMNS_COOKIE)
+            .map(|cookie| cookie.value()),
+    );
+    let members = members::table(&state, guild_id, &config, params.table, hidden).await?;
 
     render(VerificationPage {
         roles: state.role_options(&ctx.access),
@@ -182,6 +201,8 @@ pub async fn verification(
         verified_role_id: config.verified_role_id,
         unverified_role_id: config.unverified_role_id,
         hypixel_guild: config.hypixel_guild.map(|link| link.name),
+        guild_id,
+        members,
     })
 }
 
@@ -245,13 +266,14 @@ pub async fn save_hypixel_guild(
         match hypixel::fetch_guild(&state.http_client, &state.hypixel_api_key, query).await? {
             // Store the ID, it survives guild renames
             Some(guild) => {
+                let link = HypixelGuildLink {
+                    id: guild.id.clone(),
+                    name: guild.name.clone(),
+                };
                 state
-                    .guild_ranks
-                    .insert(guild.id.clone(), guild.rank_names());
-                Some(HypixelGuildLink {
-                    id: guild.id,
-                    name: guild.name,
-                })
+                    .hypixel_guilds
+                    .insert(guild.id.clone(), Some(Arc::new(guild)));
+                Some(link)
             }
             None => {
                 return Ok(section_redirect(
@@ -676,6 +698,8 @@ mod tests {
             verified_role_id: Some(serenity::RoleId::new(11)),
             unverified_role_id: None,
             hypixel_guild: Some("My Guild".to_owned()),
+            guild_id: serenity::GuildId::new(2),
+            members: members::sample_table(),
         }
         .render()
         .expect("template renders");
@@ -684,6 +708,34 @@ mod tests {
         assert!(html.contains(r#"<option value="10" disabled>@Admin</option>"#));
         assert!(html.contains(r#"value="My Guild""#));
         assert!(html.contains("You can only pick roles below your highest role."));
+
+        assert!(html.contains("1 of 2 verified"));
+        assert!(html.contains(r#"<th class="col-name" aria-sort="ascending">"#));
+        assert!(html.contains(r#"<input type="hidden" name="dir" value="asc">"#));
+        assert!(html.contains(r#"hx-post="/guilds/2/members/20/reverify""#));
+        assert!(html.contains("Verified by admin"));
+        assert!(html.contains(r#"data-verify-url="/guilds/2/members/21/verify""#));
+        assert!(html.contains(r#"class="notice-row notice-warn" data-for="member-21""#));
+        assert!(
+            html.contains(
+                r#"href="/guilds/2/verification?sort=name&#38;dir=asc&#38;page=2#members""#
+            )
+        );
+        assert!(html.contains(r#"id="verify-dialog""#));
+        assert!(html.contains(r#"<table class="members hide-xp">"#));
+        assert!(html.contains(r#"<th class="col-xp" aria-sort="none">"#));
+        assert!(
+            html.contains(r#"data-column-toggle="xp">"#),
+            "xp starts unchecked"
+        );
+        assert!(html.contains(r#"data-column-toggle="verified" checked>"#));
+        assert!(html.contains(r#"<td class="col-xp number">1,234,567</td>"#));
+        assert!(html.contains(r#"<td class="col-guild_joined hint">2024-07-03</td>"#));
+        assert!(html.contains(r#"hx-post="/guilds/2/members/20/unverify""#));
+        assert!(
+            !html.contains(r#"hx-post="/guilds/2/members/21/unverify""#),
+            "nothing to remove from unverified members"
+        );
     }
 
     #[test]

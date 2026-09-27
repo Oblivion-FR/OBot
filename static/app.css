@@ -457,6 +457,112 @@ table.segments input:not([type]) { width: 80px; }
   font-size: 14px;
 }
 
+/* Members */
+
+.visually-hidden { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+
+.btn.small { padding: 6px 12px; font-size: 13px; }
+.btn.secondary { background: var(--surface-2); color: var(--text); }
+.btn.secondary:hover { background: var(--border); }
+.btn:disabled { opacity: 0.6; cursor: progress; }
+.btn.danger { background: var(--danger-soft); color: var(--danger); }
+.btn.danger:hover { background: var(--danger); color: #fff; }
+table.members td.actions .btn + .btn { margin-left: 6px; }
+
+.table-toolbar { display: flex; flex-wrap: wrap; gap: 12px; margin-bottom: 16px; }
+.table-toolbar .field.search { flex: 1 1 260px; }
+
+table.members { border-collapse: collapse; width: 100%; min-width: 620px; }
+table.members th {
+  text-align: left;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: 0 10px 8px;
+}
+.sort-link { display: inline-flex; align-items: center; gap: 6px; color: inherit; text-decoration: none; }
+.sort-link:hover, .sort-link.sorted { color: var(--text); }
+.sort-link:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 4px; }
+.sort-arrow { font-size: 13px; opacity: 0.55; }
+.sort-link.sorted .sort-arrow { opacity: 1; color: var(--accent); }
+table.members td { padding: 10px; border-top: 1px solid var(--border); vertical-align: middle; }
+table.members td.actions { text-align: right; white-space: nowrap; }
+table.members td.empty { text-align: center; }
+table.members tbody tr:not(.notice-row):hover { background: color-mix(in srgb, var(--surface-2) 50%, transparent); }
+.member-cell { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.member-cell > div { display: flex; flex-direction: column; min-width: 0; }
+.member-cell strong, .member-cell .hint { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 240px; }
+
+table.members.hide-minecraft .col-minecraft,
+table.members.hide-status .col-status,
+table.members.hide-joined .col-joined,
+table.members.hide-verified .col-verified,
+table.members.hide-guild_joined .col-guild_joined,
+table.members.hide-xp .col-xp { display: none; }
+table.members td.number { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+table.members th.col-xp .sort-link { flex-direction: row-reverse; }
+table.members th.col-xp { text-align: right; }
+table.members td.hint { white-space: nowrap; }
+
+.table-toolbar { align-items: end; }
+.table-note { margin: -4px 0 12px; }
+.column-menu { position: relative; }
+.column-menu summary { list-style: none; }
+.column-menu summary::-webkit-details-marker { display: none; }
+.column-menu summary::after { content: "▾"; font-size: 11px; }
+.column-menu .menu {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 6px);
+  z-index: 10;
+  min-width: 200px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 6px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+  box-shadow: var(--shadow);
+}
+.column-menu label.check {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px;
+  border-radius: 6px;
+  color: var(--text);
+  font-size: 14px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.column-menu label.check:hover { background: var(--surface-2); }
+
+tr.notice-row td { border-top: 0; padding-top: 0; font-size: 13px; font-weight: 500; }
+tr.notice-row td::before { content: "↳ "; }
+tr.notice-ok td { color: var(--success); }
+tr.notice-warn td { color: var(--warning); }
+tr.notice-error td { color: var(--danger); }
+
+.pagination { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-top: 16px; }
+
+.dialog {
+  width: min(440px, calc(100vw - 32px));
+  padding: 24px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--surface);
+  color: var(--text);
+  box-shadow: var(--shadow);
+}
+.dialog::backdrop { background: rgba(0, 0, 0, 0.55); }
+.dialog form { display: flex; flex-direction: column; gap: 12px; }
+.dialog h2 { font-size: 18px; }
+.form-error { color: var(--danger); font-size: 13px; font-weight: 500; min-height: 1em; }
+.form-error:empty { display: none; }
+
 /* Home and login */
 
 .server-card { display: flex !important; flex-direction: column; align-items: center; gap: 12px; text-align: center; padding: 28px 20px; }

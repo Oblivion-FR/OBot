@@ -1,4 +1,5 @@
 mod auth;
+mod members;
 mod pages;
 
 use axum::Router;
@@ -28,8 +29,9 @@ pub struct AppState {
     pub hypixel_api_key: String,
     pub oauth: OAuthConfig,
     pub sessions: Sessions,
-    pub guild_ranks: GuildRankCache,
+    pub hypixel_guilds: HypixelGuildCache,
     pub manageable_guilds: ManageableGuildsCache,
+    pub guild_members: GuildMembersCache,
 }
 
 /// Values kept `SECS` seconds, so page loads don't hammer the Discord and Hypixel APIs
@@ -55,12 +57,20 @@ impl<K: Hash + Eq, V: Clone, const SECS: u64> TtlCache<K, V, SECS> {
         cache.retain(|_, (stored_at, _)| stored_at.elapsed() < Duration::from_secs(SECS));
         cache.insert(key, (Instant::now(), value));
     }
+
+    fn remove(&self, key: &K) {
+        let mut cache = self.0.lock().unwrap_or_else(|e| e.into_inner());
+        cache.remove(key);
+    }
 }
 
-/// Rank names by Hypixel guild ID
-pub type GuildRankCache = TtlCache<String, Vec<String>, 300>;
+/// Hypixel guilds by ID, `None` for a disbanded guild. Their ranks, members and XP only change
+/// slowly, and the Hypixel API is rate limited.
+pub type HypixelGuildCache = TtlCache<String, Option<Arc<hypixel::Guild>>, 300>;
 /// Guilds listed in a user's server rail. Only navigation: each guild page still checks access live
 pub type ManageableGuildsCache = TtlCache<serenity::UserId, Vec<serenity::GuildId>, 60>;
+/// Member list shown in the verification page, dropped when an action changes someone's roles
+pub type GuildMembersCache = TtlCache<serenity::GuildId, Arc<Vec<members::MemberInfo>>, 60>;
 
 pub fn router(state: AppState) -> Router {
     let state = Arc::new(state);
@@ -89,6 +99,18 @@ pub fn router(state: AppState) -> Router {
         .route(
             "/guilds/{guild_id}/nickname",
             get(pages::nickname).post(pages::save_nickname),
+        )
+        .route(
+            "/guilds/{guild_id}/members/{user_id}/reverify",
+            post(members::reverify),
+        )
+        .route(
+            "/guilds/{guild_id}/members/{user_id}/verify",
+            post(members::admin_verify),
+        )
+        .route(
+            "/guilds/{guild_id}/members/{user_id}/unverify",
+            post(members::unverify),
         )
         .route(
             "/guilds/{guild_id}/nickname/preview",
@@ -295,17 +317,29 @@ impl AppState {
         )
     }
 
-    async fn guild_rank_names(&self, hypixel_guild_id: &str) -> Result<Vec<String>, Error> {
-        if let Some(names) = self.guild_ranks.get(&hypixel_guild_id.to_owned()) {
-            return Ok(names);
+    async fn hypixel_guild(
+        &self,
+        hypixel_guild_id: &str,
+    ) -> Result<Option<Arc<hypixel::Guild>>, Error> {
+        if let Some(guild) = self.hypixel_guilds.get(&hypixel_guild_id.to_owned()) {
+            return Ok(guild);
         }
         let query = GuildQuery::Id(hypixel_guild_id);
-        let guild = hypixel::fetch_guild(&self.http_client, &self.hypixel_api_key, query).await?;
+        let guild = hypixel::fetch_guild(&self.http_client, &self.hypixel_api_key, query)
+            .await?
+            .map(Arc::new);
+        self.hypixel_guilds
+            .insert(hypixel_guild_id.to_owned(), guild.clone());
+        Ok(guild)
+    }
+
+    async fn guild_rank_names(&self, hypixel_guild_id: &str) -> Result<Vec<String>, Error> {
         // A disbanded guild has no ranks left to pick
-        let names = guild.map(|guild| guild.rank_names()).unwrap_or_default();
-        self.guild_ranks
-            .insert(hypixel_guild_id.to_owned(), names.clone());
-        Ok(names)
+        Ok(self
+            .hypixel_guild(hypixel_guild_id)
+            .await?
+            .map(|guild| guild.rank_names())
+            .unwrap_or_default())
     }
 
     /// Whether the role can be put in the config: it exists, is grantable, and the user may grant it

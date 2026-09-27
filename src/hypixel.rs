@@ -28,6 +28,24 @@ pub async fn fetch_mojang_profile(
     }
 }
 
+/// Current profile of an account, `None` if it was deleted. Also picks up name changes.
+pub async fn fetch_mojang_profile_by_uuid(
+    http: &reqwest::Client,
+    uuid: &str,
+) -> Result<Option<MojangProfile>, Error> {
+    let response = http
+        .get(format!(
+            "https://sessionserver.mojang.com/session/minecraft/profile/{uuid}"
+        ))
+        .send()
+        .await?;
+
+    match response.status() {
+        reqwest::StatusCode::NO_CONTENT | reqwest::StatusCode::NOT_FOUND => Ok(None),
+        _ => Ok(Some(response.error_for_status()?.json().await?)),
+    }
+}
+
 /// Rank keys stored in role rules, with their in-game display name
 pub const RANKS: &[(&str, &str)] = &[
     ("VIP", "VIP"),
@@ -153,6 +171,18 @@ pub const GUILD_MASTER: &str = "Guild Master";
 struct GuildMember {
     uuid: String,
     rank: String,
+    /// Unix time in milliseconds
+    joined: Option<i64>,
+    /// Guild XP earned per day, for the last 7 days
+    #[serde(rename = "expHistory", default)]
+    exp_history: std::collections::HashMap<String, u64>,
+}
+
+pub struct GuildMemberStats {
+    /// Unix time in seconds
+    pub joined_at: Option<i64>,
+    /// Guild XP earned over the last 7 days
+    pub weekly_xp: u64,
 }
 
 impl Guild {
@@ -166,6 +196,16 @@ impl Guild {
                 "GUILDMASTER" => GUILD_MASTER,
                 rank => rank,
             })
+    }
+
+    /// When a player joined the guild and how much guild XP they earned this week,
+    /// `None` if they are not a member
+    pub fn member_stats(&self, uuid: &str) -> Option<GuildMemberStats> {
+        let member = self.members.iter().find(|member| member.uuid == uuid)?;
+        Some(GuildMemberStats {
+            joined_at: member.joined.map(|millis| millis / 1000),
+            weekly_xp: member.exp_history.values().sum(),
+        })
     }
 
     /// Every rank a member can have, highest first
@@ -187,6 +227,28 @@ impl Guild {
             .find(|candidate| candidate.name.eq_ignore_ascii_case(rank))
             .and_then(|candidate| candidate.tag.as_deref())
             .filter(|tag| !tag.is_empty())
+    }
+}
+
+#[cfg(test)]
+impl Guild {
+    /// A guild whose members are `(uuid, joined at in seconds, XP this week)`
+    pub fn for_tests(members: &[(&str, i64, u64)]) -> Self {
+        Self {
+            id: "guild".to_owned(),
+            name: "Guild".to_owned(),
+            tag: None,
+            members: members
+                .iter()
+                .map(|&(uuid, joined, xp)| GuildMember {
+                    uuid: uuid.to_owned(),
+                    rank: "Member".to_owned(),
+                    joined: Some(joined * 1000),
+                    exp_history: [("2026-09-20".to_owned(), xp)].into_iter().collect(),
+                })
+                .collect(),
+            ranks: Vec::new(),
+        }
     }
 }
 
@@ -239,12 +301,23 @@ mod tests {
             members: vec![GuildMember {
                 uuid: "owner".to_owned(),
                 rank: "GUILDMASTER".to_owned(),
+                joined: Some(1_600_000_000_123),
+                exp_history: [
+                    ("2026-09-20".to_owned(), 1200),
+                    ("2026-09-21".to_owned(), 34),
+                ]
+                .into_iter()
+                .collect(),
             }],
             ranks: vec![rank("Member", None, 1), rank("Officer", Some("OFC"), 3)],
         };
 
         assert_eq!(guild.rank_names(), ["Guild Master", "Officer", "Member"]);
         assert_eq!(guild.member_rank("owner"), Some(GUILD_MASTER));
+        let stats = guild.member_stats("owner").expect("owner is a member");
+        assert_eq!(stats.joined_at, Some(1_600_000_000));
+        assert_eq!(stats.weekly_xp, 1234);
+        assert!(guild.member_stats("stranger").is_none());
         assert_eq!(guild.rank_tag("Guild Master"), Some("GM"));
         assert_eq!(guild.rank_tag("officer"), Some("OFC"));
         assert_eq!(guild.rank_tag("Member"), None);

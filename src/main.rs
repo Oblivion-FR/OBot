@@ -2,6 +2,7 @@ mod commands;
 mod config;
 mod hypixel;
 mod nickname;
+mod verification;
 mod web;
 
 use poise::serenity_prelude as serenity;
@@ -95,8 +96,9 @@ async fn main() -> Result<(), Error> {
             public_url: panel_url.trim_end_matches('/').to_owned(),
         },
         sessions: web::Sessions::default(),
-        guild_ranks: web::GuildRankCache::default(),
+        hypixel_guilds: web::HypixelGuildCache::default(),
         manageable_guilds: web::ManageableGuildsCache::default(),
+        guild_members: web::GuildMembersCache::default(),
     });
     let listener = tokio::net::TcpListener::bind(&panel_bind).await?;
     println!("Panel listening on {panel_url}");

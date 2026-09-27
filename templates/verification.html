@@ -47,5 +47,80 @@
     </label>
     <div class="card-footer"><button class="btn" type="submit">Save guild</button></div>
   </form>
+
+  <section class="card" id="members">
+    <div class="card-header">
+      <div>
+        <h2>Members</h2>
+        {% if members.error.is_none() %}<p class="hint">{{ members.verified_count }} of {{ members.total }} verified{% if !members.search.is_empty() %} · {{ members.matching }} matching{% endif %}</p>{% endif %}
+      </div>
+    </div>
+    {% if let Some(error) = members.error %}
+    <p class="empty">{{ error }}</p>
+    {% else %}
+    <form class="table-toolbar" method="get" action="/guilds/{{ guild_id }}/verification#members" role="search">
+      {% if let Some((field, dir)) = members.sort %}
+      <input type="hidden" name="sort" value="{{ field }}">
+      <input type="hidden" name="dir" value="{{ dir }}">
+      {% endif %}
+      <label class="field search">Search
+        <input type="search" name="q" value="{{ members.search }}" placeholder="Discord or Minecraft name, then Enter">
+      </label>
+      <details class="column-menu">
+        <summary class="btn secondary">Columns</summary>
+        <div class="menu" role="group" aria-label="Visible columns">
+          {% for header in members.headers %}{% if header.key != "name" %}
+          <label class="check"><input type="checkbox" data-column-toggle="{{ header.key }}"{% if !header.hidden %} checked{% endif %}> {{ header.label }}</label>
+          {% endif %}{% endfor %}
+        </div>
+      </details>
+    </form>
+    {% if let Some(note) = members.guild_note %}<p class="hint table-note">{{ note }}</p>{% endif %}
+    <div class="table-scroll">
+      <table class="members {{ members.hidden_classes }}">
+        <thead>
+          <tr>
+            {% for header in members.headers %}
+            <th class="col-{{ header.key }}" aria-sort="{{ header.aria }}">
+              <a class="sort-link{% if header.aria != "none" %} sorted{% endif %}" href="{{ header.url }}">{{ header.label }}<span class="sort-arrow" aria-hidden="true">{{ header.arrow }}</span></a>
+            </th>
+            {% endfor %}
+            <th><span class="visually-hidden">Actions</span></th>
+          </tr>
+        </thead>
+        <tbody>
+          {% let can_act = members.can_act %}
+          {% for row in members.rows %}
+          {% include "member_row.html" %}
+          {% else %}
+          <tr><td colspan="8" class="empty">No member matches.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% if members.pages > 1 %}
+    <nav class="pagination" aria-label="Member pages">
+      {% if let Some(url) = members.prev_url %}<a class="btn small secondary" href="{{ url }}">← Previous</a>{% else %}<span></span>{% endif %}
+      <span class="hint">Page {{ members.page }} of {{ members.pages }}</span>
+      {% if let Some(url) = members.next_url %}<a class="btn small secondary" href="{{ url }}">Next →</a>{% else %}<span></span>{% endif %}
+    </nav>
+    {% endif %}
+    {% endif %}
+  </section>
 </div>
+
+<dialog class="dialog" id="verify-dialog" aria-labelledby="verify-title">
+  <form method="dialog" id="verify-form">
+    <h2 id="verify-title">Verify <span data-member-name></span></h2>
+    <p class="hint">Same check as /verify: the Minecraft account must have this member's Discord linked on Hypixel. Roles and nickname are then applied for them.</p>
+    <label class="field">Minecraft username
+      <input name="username" autocomplete="off" required maxlength="16" pattern="[A-Za-z0-9_]{1,16}">
+    </label>
+    <p class="form-error" data-form-error role="alert"></p>
+    <div class="card-footer">
+      <button class="btn secondary" type="button" value="cancel" data-close>Cancel</button>
+      <button class="btn" type="submit">Verify</button>
+    </div>
+  </form>
+</dialog>
 {% endblock %}
