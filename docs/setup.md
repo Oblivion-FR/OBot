@@ -53,15 +53,16 @@ the files it read.
 
 ### Variables
 
-| Variable | Required | Default | Purpose |
-| --- | --- | --- | --- |
-| `DISCORD_TOKEN` | yes | | Bot token |
-| `DISCORD_CLIENT_SECRET` | yes | | OAuth2 client secret, for the panel login |
-| `HYPIXEL_API_KEY` | yes | | Hypixel API key |
-| `PANEL_BIND` | no | `127.0.0.1:8081` | Address the panel listens on |
-| `PANEL_URL` | no | `http://<PANEL_BIND>` | Public URL of the panel, as typed in the browser |
-| `DATABASE_URL` | no | `sqlite://obot.db` | SQLite database, created on first start |
-| `GUILD_ID` | no | | Register slash commands in this server only, which is instant. Handy while developing, leave empty in production |
+| Variable                | Required | Default               | Purpose                                                        |
+|-------------------------|----------|-----------------------|----------------------------------------------------------------|
+| `DISCORD_TOKEN`         | yes      |                       | Bot token                                                      |
+| `DISCORD_CLIENT_SECRET` | yes      |                       | OAuth2 client secret, for the panel login                      |
+| `HYPIXEL_API_KEY`       | yes      |                       | Hypixel API key                                                |
+| `PANEL_BIND`            | no       | `127.0.0.1:8081`      | Address the panel listens on                                   |
+| `PANEL_URL`             | no       | `http://<PANEL_BIND>` | Public URL of the panel, as typed in the browser               |
+| `DATABASE_URL`          | no       | `sqlite://obot.db`    | SQLite database, created on first start                        |
+| `GUILD_ID`              | no       |                       | Register slash commands in this server only, which is instant. |
+|                         |          |                       | Handy while developing, leave empty in production              |
 
 `PANEL_URL` must match how people reach the panel (domain, `https`, port): it's used for the
 login redirect, and panel forms posted from any other origin are rejected.

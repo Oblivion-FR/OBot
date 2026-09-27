@@ -27,14 +27,14 @@ Back it up by copying the volume, ideally while the stack is stopped.
 
 Set in Portainer (or in the shell or an env file when running Compose by hand):
 
-| Variable | Required | Purpose |
-| --- | --- | --- |
-| `DISCORD_TOKEN` | yes | Bot token of this environment's Discord application |
-| `DISCORD_CLIENT_SECRET` | yes | Its OAuth2 client secret |
-| `HYPIXEL_API_KEY` | yes | Hypixel API key |
-| `PANEL_URL` | yes | Public URL of the panel, like `https://obot.example.com` |
-| `GUILD_ID` | no | Test server for instant slash commands, usually for development only |
-| `PANEL_PORT` | no | Host port of the panel, `8081` in production and `8082` in development |
+| Variable                | Required | Purpose                                                                |
+|-------------------------|----------|------------------------------------------------------------------------|
+| `DISCORD_TOKEN`         | yes      | Bot token of this environment's Discord application                    |
+| `DISCORD_CLIENT_SECRET` | yes      | Its OAuth2 client secret                                               |
+| `HYPIXEL_API_KEY`       | yes      | Hypixel API key                                                        |
+| `PANEL_URL`             | yes      | Public URL of the panel, like `https://obot.example.com`               |
+| `GUILD_ID`              | no       | Test server for instant slash commands, usually for development only   |
+| `PANEL_PORT`            | no       | Host port of the panel, `8081` in production and `8082` in development |
 
 `OBOT_ENV`, `DATABASE_URL` and `PANEL_BIND` are set by the Compose files. A missing required
 variable stops the deployment with a message naming it.

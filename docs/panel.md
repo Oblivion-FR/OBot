@@ -57,11 +57,11 @@ verified role but no stored account, for example verified before accounts were s
 
 A rule gives a role when a condition matches, and removes it when it stops matching:
 
-| Condition | Matches when |
-| --- | --- |
-| Hypixel rank is … | The player has exactly that rank (VIP to MVP++, YOUTUBER, STAFF) |
-| Member of the Hypixel guild | The player is in the linked guild |
-| Guild rank is … | The player has that rank in the linked guild |
+| Condition                   | Matches when                                                     |
+|-----------------------------|------------------------------------------------------------------|
+| Hypixel rank is …           | The player has exactly that rank (VIP to MVP++, YOUTUBER, STAFF) |
+| Member of the Hypixel guild | The player is in the linked guild                                |
+| Guild rank is …             | The player has that rank in the linked guild                     |
 
 Guild ranks are picked from the linked guild's current ranks.
 
