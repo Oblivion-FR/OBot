@@ -35,3 +35,32 @@ fn files_go_from_most_to_least_specific() {
         ]
     );
 }
+
+#[test]
+fn files_are_only_read_from_the_directory_itself() {
+    let parent = std::env::temp_dir().join(format!("obot-env-{}", std::process::id()));
+    let directory = parent.join("project");
+    std::fs::create_dir_all(&directory).unwrap();
+    std::fs::write(
+        parent.join(".env"),
+        "OBOT_TEST_FROM_PARENT=1
+",
+    )
+    .unwrap();
+    std::fs::write(
+        directory.join(".env.test"),
+        "OBOT_TEST_FROM_MODE=1
+",
+    )
+    .unwrap();
+
+    let loaded = load_from(&directory, "test").unwrap();
+    std::fs::remove_dir_all(&parent).unwrap();
+
+    assert_eq!(loaded, [".env.test"]);
+    assert!(
+        std::env::var("OBOT_TEST_FROM_PARENT").is_err(),
+        "a parent's .env is ignored"
+    );
+    assert_eq!(std::env::var("OBOT_TEST_FROM_MODE").unwrap(), "1");
+}

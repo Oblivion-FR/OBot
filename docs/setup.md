@@ -52,7 +52,8 @@ the first place that defines it:
 4. `.env.local`: your machine only, every mode
 5. `.env`: every mode
 
-Missing files are skipped, so a single `.env` is enough. A mode file only needs the variables
+Files are only read from the directory the bot runs in, never from its parents, and missing
+ones are skipped, so a single `.env` is enough. A mode file only needs the variables
 that differ, like a test bot's token in `.env.development`. Every `.env*` file except
 `.env.example` is ignored by git, since they hold secrets. On startup the bot prints its mode and
 the files it read.
