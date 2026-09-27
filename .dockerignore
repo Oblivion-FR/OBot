@@ -1,0 +1,13 @@
+# Only what the build needs: sources, templates, static files, migrations and Cargo files
+target
+.git
+.github
+docs
+*.md
+
+# Secrets and local data: settings come from the environment, the database from a volume
+.env
+.env.*
+*.db
+*.db-shm
+*.db-wal

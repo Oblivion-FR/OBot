@@ -1,0 +1,30 @@
+# syntax=docker/dockerfile:1
+
+FROM rust:1.94-slim-trixie AS build
+WORKDIR /app
+COPY . .
+# The cache mounts keep downloaded crates and compiled dependencies between builds. `target` lives
+# in the cache, so the binary is copied out of it in the same step.
+RUN --mount=type=cache,target=/usr/local/cargo/registry \
+    --mount=type=cache,target=/app/target \
+    cargo build --release --locked \
+    && cp target/release/obot /usr/local/bin/obot
+
+FROM debian:trixie-slim
+# HTTPS to Discord, Hypixel and Mojang is checked against the system certificates
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
+# `/data` holds the SQLite database. A new named volume mounted there copies this folder, owner
+# included, so the bot can write to it without running as root.
+RUN useradd --system --uid 10001 --no-create-home obot \
+    && mkdir /data \
+    && chown obot /data
+COPY --from=build /usr/local/bin/obot /usr/local/bin/obot
+
+USER obot
+WORKDIR /data
+ENV DATABASE_URL=sqlite:///data/obot.db \
+    PANEL_BIND=0.0.0.0:8081
+EXPOSE 8081
+CMD ["obot"]

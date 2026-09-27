@@ -56,7 +56,7 @@ stored as `INTEGER`: SQLite has no unsigned integers, and every Discord ID fits 
 bit for bit.
 
 | Table | Content |
-|---|---|
+| --- | --- |
 | `guild_config` | Per server: verification roles, linked Hypixel guild, nickname settings |
 | `role_rule` | Role rules |
 | `nickname_segment` | Nickname fields: order, prefix, suffix, importance |

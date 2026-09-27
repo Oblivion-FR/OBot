@@ -1,0 +1,65 @@
+# Development bot, a separate Discord application with its own database. It runs a debug build
+# that rebuilds and restarts on every change.
+#
+# Locally, with hot reload: `docker compose -f compose.development.yml --env-file .env.development watch`
+# In Portainer: Stacks → Add stack → Repository, compose path `compose.development.yml`, and set
+# the variables below in the stack's environment variables. Portainer ignores `develop`, so it
+# runs the code of the deployed commit.
+name: obot-development
+
+services:
+  obot:
+    build:
+      context: .
+      dockerfile: Dockerfile.development
+    image: obot:development
+    restart: unless-stopped
+    environment:
+      OBOT_ENV: development
+      DISCORD_TOKEN: ${DISCORD_TOKEN:?set DISCORD_TOKEN}
+      DISCORD_CLIENT_SECRET: ${DISCORD_CLIENT_SECRET:?set DISCORD_CLIENT_SECRET}
+      HYPIXEL_API_KEY: ${HYPIXEL_API_KEY:?set HYPIXEL_API_KEY}
+      # Public URL of the panel, its `/callback` must be in the Discord application's redirects
+      PANEL_URL: ${PANEL_URL:?set PANEL_URL}
+      # A test server, so slash commands update instantly
+      GUILD_ID: ${GUILD_ID:-}
+    ports:
+      # Next to production's 8081, so both can run on the same host
+      - ${PANEL_PORT:-8082}:8081
+    volumes:
+      - data:/data
+      # Build output and downloaded crates survive restarts, so rebuilds stay incremental
+      - target:/app/target
+      - cargo-registry:/usr/local/cargo/registry
+    # Hot reload with `docker compose watch`: changed files are copied into the container, where
+    # the file watcher rebuilds and restarts the bot. Syncing rather than a bind mount, because
+    # Docker Desktop doesn't reliably forward file change events from Windows hosts.
+    develop:
+      watch:
+        - action: sync
+          path: ./src
+          target: /app/src
+        - action: sync
+          path: ./templates
+          target: /app/templates
+        - action: sync
+          path: ./static
+          target: /app/static
+        - action: sync
+          path: ./migrations
+          target: /app/migrations
+        - action: sync
+          path: ./Cargo.toml
+          target: /app/Cargo.toml
+        - action: sync
+          path: ./Cargo.lock
+          target: /app/Cargo.lock
+
+volumes:
+  # The SQLite database, kept apart from the container so it survives rebuilds and updates
+  data:
+    name: obot-development-data
+  target:
+    name: obot-development-target
+  cargo-registry:
+    name: obot-development-cargo-registry

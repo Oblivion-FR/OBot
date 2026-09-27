@@ -1,0 +1,30 @@
+# Production bot. In Portainer: Stacks → Add stack → Repository, compose path
+# `compose.production.yml`, and set the variables below in the stack's environment variables.
+# Locally: `docker compose -f compose.production.yml --env-file .env.production up -d --build`
+name: obot-production
+
+services:
+  obot:
+    build:
+      context: .
+      dockerfile: Dockerfile.production
+    image: obot:production
+    restart: unless-stopped
+    environment:
+      OBOT_ENV: production
+      DISCORD_TOKEN: ${DISCORD_TOKEN:?set DISCORD_TOKEN}
+      DISCORD_CLIENT_SECRET: ${DISCORD_CLIENT_SECRET:?set DISCORD_CLIENT_SECRET}
+      HYPIXEL_API_KEY: ${HYPIXEL_API_KEY:?set HYPIXEL_API_KEY}
+      # Public URL of the panel, its `/callback` must be in the Discord application's redirects
+      PANEL_URL: ${PANEL_URL:?set PANEL_URL}
+      # Leave empty in production: commands are registered globally
+      GUILD_ID: ${GUILD_ID:-}
+    ports:
+      - ${PANEL_PORT:-8081}:8081
+    volumes:
+      - data:/data
+
+volumes:
+  # The SQLite database, kept apart from the container so it survives rebuilds and updates
+  data:
+    name: obot-production-data

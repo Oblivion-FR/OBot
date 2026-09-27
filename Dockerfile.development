@@ -1,0 +1,21 @@
+# syntax=docker/dockerfile:1
+
+# Development image: runs `cargo run` (debug build) under a file watcher that rebuilds and
+# restarts the bot on every change. The sources are copied in, so it runs anywhere; with
+# `docker compose watch` (see compose.development.yml), local edits are synced into it.
+FROM rust:1.94-slim-trixie
+
+RUN cargo install --locked watchexec-cli
+
+WORKDIR /app
+COPY . .
+
+ENV DATABASE_URL=sqlite:///data/obot.db \
+    PANEL_BIND=0.0.0.0:8081
+EXPOSE 8081
+
+# Only sources are watched: build output also holds `.rs` files, which would restart it forever
+CMD ["watchexec", "--restart", \
+     "--watch", "src", "--watch", "templates", "--watch", "static", "--watch", "migrations", \
+     "--watch", "Cargo.toml", "--watch", "Cargo.lock", \
+     "--", "cargo", "run", "--locked"]
