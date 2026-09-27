@@ -20,8 +20,12 @@ proves they own the Minecraft account. Then it:
 3. renames the member, if nicknames are turned on,
 4. remembers which Minecraft account the member verified with.
 
-Running `/verify` again refreshes roles and nickname. Each member can be linked to one Minecraft
-account, and each account to one member, per server.
+Running `/verify` again refreshes roles and nickname. OBot also refreshes every verified member
+on its own every 3 hours (set by `RESYNC_INTERVAL_HOURS`), with current Hypixel data and
+Minecraft name, like the panel's **Re-verify** does. A refresh keeps the date of the
+verification. Members who left the server are skipped, and keep their link if they come back.
+
+Each member can be linked to one Minecraft account, and each account to one member, per server.
 
 A failed check is always retried live against Hypixel, so a member who links their Discord right
 after a failed attempt can verify straight away. Successful lookups are reused for up to

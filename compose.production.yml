@@ -19,6 +19,8 @@ services:
       PANEL_URL: ${PANEL_URL:?set PANEL_URL}
       # Leave empty in production: commands are registered globally
       GUILD_ID: ${GUILD_ID:-}
+      # Hours between refreshes of every verified member, 3 by default, 0 turns them off
+      RESYNC_INTERVAL_HOURS: ${RESYNC_INTERVAL_HOURS:-}
     ports:
       - ${PANEL_PORT:-8081}:8081
     volumes:

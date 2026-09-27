@@ -467,6 +467,35 @@ pub async fn record_verification(
     Ok(())
 }
 
+/// Follows a name change of a verified member's account, keeping when and by whom they were
+/// verified
+pub async fn update_minecraft_name(
+    db: &SqlitePool,
+    guild_id: serenity::GuildId,
+    user_id: serenity::UserId,
+    minecraft_name: &str,
+) -> Result<(), Error> {
+    sqlx::query("UPDATE verified_member SET minecraft_name = ? WHERE guild_id = ? AND user_id = ?")
+        .bind(minecraft_name)
+        .bind(to_db(guild_id))
+        .bind(to_db(user_id))
+        .execute(db)
+        .await?;
+    Ok(())
+}
+
+/// Servers where verification is set up
+pub async fn list_verifying_guilds(db: &SqlitePool) -> Result<Vec<serenity::GuildId>, Error> {
+    let ids: Vec<i64> =
+        sqlx::query_scalar("SELECT guild_id FROM guild_config WHERE verified_role_id IS NOT NULL")
+            .fetch_all(db)
+            .await?;
+    Ok(ids
+        .into_iter()
+        .filter_map(|id| std::num::NonZeroU64::new(id as u64).map(serenity::GuildId::from))
+        .collect())
+}
+
 pub async fn get_verified_member(
     db: &SqlitePool,
     guild_id: serenity::GuildId,

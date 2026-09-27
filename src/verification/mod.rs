@@ -3,7 +3,7 @@ use sqlx::SqlitePool;
 use std::collections::BTreeSet;
 
 use crate::Error;
-use crate::config::{self, Rule, RuleGroup, RuleKind};
+use crate::config::{self, GuildConfig, Rule, RuleGroup, RuleKind, VerifiedMember};
 use crate::hypixel::{self, Hypixel, MojangProfile, Player};
 use crate::nickname;
 
@@ -11,6 +11,8 @@ use crate::nickname;
 pub struct Services<'a> {
     pub db: &'a SqlitePool,
     pub hypixel: &'a Hypixel,
+    /// For Mojang, which has no API key and no rate limit headers to follow
+    pub mojang: &'a reqwest::Client,
     pub discord: &'a serenity::Http,
     pub cache: &'a serenity::Cache,
 }
@@ -59,6 +61,26 @@ pub struct Outcome {
     pub nickname: NicknameChange,
 }
 
+impl Outcome {
+    /// Whether the member's roles or nickname were changed
+    pub fn changed(&self) -> bool {
+        !self.added.is_empty()
+            || !self.removed.is_empty()
+            || matches!(
+                self.nickname,
+                NicknameChange::Set(_) | NicknameChange::Reset
+            )
+    }
+}
+
+/// How a sync is recorded
+pub enum Record {
+    /// A new proof of ownership, by the member or by an admin on their behalf
+    Verified { by: Option<serenity::UserId> },
+    /// A refresh of an earlier proof: keeps when and by whom it was made
+    Refreshed,
+}
+
 /// Discord never lets bots rename the server owner, nor members whose highest role is at or
 /// above the bot's. The error is shown to whoever triggered the verification.
 fn can_rename(
@@ -87,6 +109,53 @@ fn can_rename(
     } else {
         Err("their highest role is at or above the bot's")
     }
+}
+
+pub enum RefreshFailure {
+    /// The server has no verified role anymore
+    NotSetUp,
+    /// The Minecraft account was deleted
+    AccountGone,
+}
+
+/// Re-applies the account a member proved before, with current Mojang and Hypixel data: picks
+/// up name, rank and guild changes. The proof isn't checked again, it was when it was made.
+pub async fn refresh_member(
+    services: &Services<'_>,
+    guild_id: serenity::GuildId,
+    member: &serenity::Member,
+    config: &GuildConfig,
+    stored: &VerifiedMember,
+) -> Result<Result<(MojangProfile, Outcome), RefreshFailure>, Error> {
+    let Some(verified_role_id) = config.verified_role_id else {
+        return Ok(Err(RefreshFailure::NotSetUp));
+    };
+    let Some(profile) =
+        hypixel::fetch_mojang_profile_by_uuid(services.mojang, &stored.minecraft_uuid).await?
+    else {
+        return Ok(Err(RefreshFailure::AccountGone));
+    };
+    let player = services
+        .hypixel
+        .player(&profile.id)
+        .await?
+        .unwrap_or(Player {
+            discord: None,
+            rank: None,
+        });
+    let outcome = sync_member(
+        services,
+        guild_id,
+        member,
+        verified_role_id,
+        config.unverified_role_id,
+        config.hypixel_guild.as_ref().map(|link| link.id.as_str()),
+        &profile,
+        &player,
+        Record::Refreshed,
+    )
+    .await?;
+    Ok(Ok((profile, outcome)))
 }
 
 /// Whether a rule applies to a player, from their Hypixel rank (`None` without one) and their
@@ -154,7 +223,7 @@ pub async fn sync_member(
     hypixel_guild_id: Option<&str>,
     profile: &MojangProfile,
     player: &Player,
-    forced_by: Option<serenity::UserId>,
+    record: Record,
 ) -> Result<Outcome, Error> {
     let rules = config::list_rules(services.db, guild_id).await?;
     let groups = config::list_groups(services.db, guild_id).await?;
@@ -189,9 +258,10 @@ pub async fn sync_member(
     added.retain(|role| !member.roles.contains(role));
     removed.retain(|role| member.roles.contains(role));
 
-    let reason = match forced_by {
-        Some(_) => format!("Verified as {} by an admin", profile.name),
-        None => format!("Verified as {}", profile.name),
+    let reason = match record {
+        Record::Verified { by: Some(_) } => format!("Verified as {} by an admin", profile.name),
+        Record::Verified { by: None } => format!("Verified as {}", profile.name),
+        Record::Refreshed => format!("Refreshed from {}'s Hypixel profile", profile.name),
     };
     let user_id = member.user.id;
     for &role in &added {
@@ -206,15 +276,22 @@ pub async fn sync_member(
             .remove_member_role(guild_id, user_id, role, Some(&reason))
             .await?;
     }
-    config::record_verification(
-        services.db,
-        guild_id,
-        user_id,
-        &profile.id,
-        &profile.name,
-        forced_by,
-    )
-    .await?;
+    match record {
+        Record::Verified { by } => {
+            config::record_verification(
+                services.db,
+                guild_id,
+                user_id,
+                &profile.id,
+                &profile.name,
+                by,
+            )
+            .await?
+        }
+        Record::Refreshed => {
+            config::update_minecraft_name(services.db, guild_id, user_id, &profile.name).await?
+        }
+    }
 
     let mut nickname_change = NicknameChange::Unchanged;
     if nickname_format.enabled {

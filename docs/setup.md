@@ -62,6 +62,8 @@ the files it read.
 | `PANEL_BIND`            | no       | `127.0.0.1:8081`      | Address the panel listens on                                   |
 | `PANEL_URL`             | no       | `http://<PANEL_BIND>` | Public URL of the panel, as typed in the browser               |
 | `DATABASE_URL`          | no       | `sqlite://obot.db`    | SQLite database, created on first start                        |
+| `RESYNC_INTERVAL_HOURS` | no       | `3`                   | Hours between refreshes of every verified member,              |
+|                         |          |                       | `0` turns them off                                             |
 | `GUILD_ID`              | no       |                       | Register slash commands in this server only, which is instant. |
 |                         |          |                       | Handy while developing, leave empty in production              |
 

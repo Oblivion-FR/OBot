@@ -13,7 +13,7 @@ use super::{Access, AppError, AppState};
 use crate::Error;
 use crate::config::{self, GuildConfig, VerifiedMember};
 use crate::hypixel::{self, Player};
-use crate::verification::{self, Conflict, NicknameChange, Outcome};
+use crate::verification::{self, Conflict, NicknameChange, Outcome, Record, RefreshFailure};
 
 const PAGE_SIZE: usize = 50;
 
@@ -78,6 +78,7 @@ impl AppState {
         verification::Services {
             db: &self.db,
             hypixel: &self.hypixel,
+            mojang: &self.http_client,
             discord: &self.discord,
             cache: &self.cache,
         }
@@ -625,7 +626,7 @@ async fn run_sync(
     config: &GuildConfig,
     profile: &hypixel::MojangProfile,
     player: &Player,
-    verified_by: Option<serenity::UserId>,
+    verified_by: serenity::UserId,
 ) -> Result<Result<Outcome, Refused>, Error> {
     let Some(verified_role_id) = config.verified_role_id else {
         return Ok(Err("Pick a verified role first.".into()));
@@ -639,7 +640,9 @@ async fn run_sync(
         config.hypixel_guild.as_ref().map(|link| link.id.as_str()),
         profile,
         player,
-        verified_by,
+        Record::Verified {
+            by: Some(verified_by),
+        },
     )
     .await?;
     state.guild_members.remove(&access.guild_id);
@@ -667,42 +670,29 @@ pub async fn reverify(
         let notice = error("This member has no linked account, use Verify instead.".to_owned());
         return row_for(&state, access.guild_id, &member, &config, notice).await;
     };
-    let Some(profile) =
-        hypixel::fetch_mojang_profile_by_uuid(&state.http_client, &stored.minecraft_uuid).await?
-    else {
-        let notice = error(format!(
-            "The Minecraft account {} no longer exists.",
-            stored.minecraft_name
-        ));
-        return row_for(&state, access.guild_id, &member, &config, notice).await;
-    };
-
-    // The stored link was proven when it was made, so it isn't checked again. An admin asking
-    // to re-verify wants current data, so the profile is always fetched live.
-    let player = state.hypixel.player(&profile.id).await?.unwrap_or(Player {
-        discord: None,
-        rank: None,
-    });
-    let notice = match run_sync(
-        &state,
-        &access,
+    let notice = match verification::refresh_member(
+        &state.services(),
+        access.guild_id,
         &member,
         &config,
-        &profile,
-        &player,
-        stored.forced_by,
+        &stored,
     )
     .await?
     {
-        Ok(outcome) => describe(
+        Ok((profile, outcome)) => describe(
             &state,
             access.guild_id,
             format!("Re-verified as {}.", profile.name),
             &outcome,
             "Everything was already up to date.",
         ),
-        Err(Refused(reason)) => error(reason),
+        Err(RefreshFailure::NotSetUp) => error("Pick a verified role first.".to_owned()),
+        Err(RefreshFailure::AccountGone) => error(format!(
+            "The Minecraft account {} no longer exists.",
+            stored.minecraft_name
+        )),
     };
+    state.guild_members.remove(&access.guild_id);
     row_for(&state, access.guild_id, &member, &config, notice).await
 }
 
@@ -786,13 +776,7 @@ pub async fn admin_verify(
     }
 
     match run_sync(
-        &state,
-        &access,
-        &member,
-        &config,
-        &profile,
-        &player,
-        Some(user.id),
+        &state, &access, &member, &config, &profile, &player, user.id,
     )
     .await?
     {

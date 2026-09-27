@@ -23,6 +23,8 @@ services:
       PANEL_URL: ${PANEL_URL:?set PANEL_URL}
       # A test server, so slash commands update instantly
       GUILD_ID: ${GUILD_ID:-}
+      # Hours between refreshes of every verified member, 3 by default, 0 turns them off
+      RESYNC_INTERVAL_HOURS: ${RESYNC_INTERVAL_HOURS:-}
     ports:
       # Next to production's 8081, so both can run on the same host
       - ${PANEL_PORT:-8082}:8081

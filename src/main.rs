@@ -4,6 +4,7 @@ mod config;
 mod env_files;
 mod hypixel;
 mod nickname;
+mod resync;
 mod verification;
 mod version;
 mod web;
@@ -71,6 +72,7 @@ async fn main() -> Result<(), Error> {
     let dev_guild_id = optional_env("GUILD_ID")
         .map(|id| parse_id("GUILD_ID", &id).map(serenity::GuildId::from))
         .transpose()?;
+    let resync_every = resync::interval(optional_env("RESYNC_INTERVAL_HOURS"))?;
 
     let db = config::connect(&database_url).await?;
     let http = reqwest::Client::new();
@@ -122,6 +124,24 @@ async fn main() -> Result<(), Error> {
         .await
         .map_err(token_error)?
         .id;
+
+    match resync_every {
+        Some(every) => {
+            println!(
+                "Verified members are refreshed every {}h",
+                every.as_secs() / 3600
+            );
+            let resync = resync::Resync {
+                db: db.clone(),
+                hypixel: hypixel.clone(),
+                mojang: http.clone(),
+                discord: client.http.clone(),
+                cache: client.cache.clone(),
+            };
+            tokio::spawn(resync.run(every));
+        }
+        None => println!("Refreshing verified members is turned off"),
+    }
 
     let panel = web::router(web::AppState {
         db,

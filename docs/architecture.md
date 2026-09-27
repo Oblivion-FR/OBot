@@ -13,6 +13,7 @@ cache and HTTP client, and the Hypixel client.
 | [`commands`](../src/commands.rs)             | Slash commands: `/verify`, `/version`, `/healthcheck`                                     |
 | [`verification`](../src/verification/mod.rs) | Verification logic shared by `/verify` and the panel: ownership check,                    |
 |                                              | role and nickname sync, removal, one account per member                                   |
+| [`resync`](../src/resync/mod.rs)             | Refreshes every verified member on a schedule (`RESYNC_INTERVAL_HOURS`)                   |
 | [`hypixel`](../src/hypixel/mod.rs)           | Hypixel and Mojang API types, and the shared [`Hypixel` client](../src/hypixel/client.rs) |
 |                                              | with its [rate limiter](../src/hypixel/limit/mod.rs)                                      |
 | [`nickname`](../src/nickname/mod.rs)         | Nickname format and rendering                                                             |

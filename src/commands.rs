@@ -3,7 +3,7 @@ use std::collections::BTreeSet;
 
 use crate::config;
 use crate::hypixel;
-use crate::verification::{self, Conflict, NicknameChange, Services};
+use crate::verification::{self, Conflict, NicknameChange, Record, Services};
 use crate::version;
 use crate::{Context, Error};
 
@@ -99,6 +99,7 @@ pub async fn verify(
     let services = Services {
         db: &data.db,
         hypixel: &data.hypixel,
+        mojang: &data.http,
         discord: ctx.http(),
         cache: ctx.cache(),
     };
@@ -130,7 +131,7 @@ pub async fn verify(
         config.hypixel_guild.as_ref().map(|link| link.id.as_str()),
         &profile,
         &player,
-        None,
+        Record::Verified { by: None },
     )
     .await?;
 

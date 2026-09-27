@@ -66,6 +66,8 @@ Set in Portainer (or in the shell or an env file when running Compose by hand):
 | `PANEL_URL`             | yes      | Public URL of the panel, like `https://obot.example.com`               |
 | `GUILD_ID`              | no       | Test server for instant slash commands, usually for development only   |
 | `PANEL_PORT`            | no       | Host port of the panel, `8081` in production and `8082` in development |
+| `RESYNC_INTERVAL_HOURS` | no       | Hours between refreshes of every verified member, `3` by default,      |
+|                         |          | `0` turns them off                                                     |
 | `OBOT_TAG`              | no       | Image tag to run instead of the latest, like `production-9bcd1a5`      |
 
 `OBOT_ENV`, `DATABASE_URL` and `PANEL_BIND` are set by the Compose files and the images. A
