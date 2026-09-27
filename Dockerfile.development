@@ -8,6 +8,10 @@ RUN cargo install --locked watchexec-cli
 
 WORKDIR /app
 COPY . .
+# Commit shown in the bot's status, passed by CI: `.git` isn't in the build context. Kept as an
+# environment variable, since this image compiles the bot when it starts.
+ARG OBOT_COMMIT
+ENV OBOT_COMMIT=$OBOT_COMMIT
 
 ENV DATABASE_URL=sqlite:///data/obot.db \
     PANEL_BIND=0.0.0.0:8081

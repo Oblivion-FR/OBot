@@ -570,6 +570,13 @@ tr.notice-error td { color: var(--danger); }
 /* Home and login */
 
 .server-card { display: flex !important; flex-direction: column; align-items: center; gap: 12px; text-align: center; padding: 28px 20px; }
+.version-footer { padding: 0 32px 24px; color: var(--muted); font-size: 12px; }
+.version-footer a { color: inherit; }
+.version-footer a:hover { color: var(--accent); }
+/* The card stays centered, the footer sits at the bottom */
+.login .version-footer { padding: 0; text-align: center; }
+.login:has(.version-footer) { grid-template-rows: 1fr auto; }
+
 .server-card strong { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .server-card.add { border-style: dashed; color: var(--muted); }
 .server-card.add .guild-icon { color: var(--success); font-size: 28px; font-weight: 400; }

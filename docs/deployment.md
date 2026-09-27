@@ -36,6 +36,17 @@ be slow, and can exceed Portainer's deployment time limit. The images follow the
 visibility; if the package is private, add `ghcr.io` in Portainer under **Registries** with a
 GitHub token that can read packages.
 
+## Version
+
+The bot's Discord status shows its version and the commit it was built from, like
+`OBot v0.1.0 (20c7fcf)`, followed by the environment outside production
+(`OBot v0.1.0 (20c7fcf) · development`). The commit matches the image tag
+`production-<commit>`. The version is the one in `Cargo.toml`: raise it for a release.
+
+Discord doesn't allow links in a bot's status, so the clickable version is elsewhere: `/version`
+replies with the commit linked to its page on GitHub and a link to the repository, and every
+panel page shows the same in its footer.
+
 ## Database
 
 The SQLite database is a file, `/data/obot.db`, in a named volume. SQLite is a library inside the

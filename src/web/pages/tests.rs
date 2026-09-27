@@ -71,6 +71,13 @@ fn frame_renders_rail_and_sidebar() {
     assert!(html.contains("https://cdn.example/avatar.png"));
     assert!(html.contains("1 rule<"));
     assert!(html.contains("[MVP+] Notch [OFC]"));
+
+    // Footer: the version, its commit and the repository
+    assert!(html.contains(&format!("OBot v{}", crate::version::NUMBER)));
+    assert!(html.contains(r#"<a href="https://github.com/Oblivion-FR/OBot" target="_blank""#));
+    if let Some(url) = crate::version::commit_url() {
+        assert!(html.contains(&format!(r#"<a href="{url}""#)));
+    }
 }
 
 #[test]

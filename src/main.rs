@@ -5,6 +5,7 @@ mod env_files;
 mod hypixel;
 mod nickname;
 mod verification;
+mod version;
 mod web;
 
 use poise::serenity_prelude as serenity;
@@ -53,6 +54,7 @@ fn token_error(error: serenity::Error) -> Error {
 async fn main() -> Result<(), Error> {
     let mode = env_files::mode(var("OBOT_ENV").ok())?;
     let loaded = env_files::load(&mode)?;
+    println!("OBot v{}", version::label());
     if loaded.is_empty() {
         println!("Environment: {mode}, no .env file found, using environment variables");
     } else {
@@ -76,7 +78,11 @@ async fn main() -> Result<(), Error> {
 
     let framework = poise::Framework::builder()
         .options(poise::FrameworkOptions {
-            commands: vec![commands::healthcheck(), commands::verify()],
+            commands: vec![
+                commands::healthcheck(),
+                commands::version(),
+                commands::verify(),
+            ],
             ..Default::default()
         })
         .setup({
@@ -98,8 +104,14 @@ async fn main() -> Result<(), Error> {
         })
         .build();
 
+    // Tells at a glance which version runs, and which bot is the development one
+    let status = match mode.as_str() {
+        "production" => format!("OBot v{}", version::label()),
+        mode => format!("OBot v{} · {mode}", version::label()),
+    };
     let intents = serenity::GatewayIntents::non_privileged();
     let mut client = serenity::ClientBuilder::new(token, intents)
+        .activity(serenity::ActivityData::custom(status))
         .framework(framework)
         .await?;
 

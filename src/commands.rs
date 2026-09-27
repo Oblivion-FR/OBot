@@ -4,12 +4,30 @@ use std::collections::BTreeSet;
 use crate::config;
 use crate::hypixel;
 use crate::verification::{self, Conflict, NicknameChange, Services};
+use crate::version;
 use crate::{Context, Error};
 
 /// Check that the bot is alive
 #[poise::command(slash_command, ephemeral)]
 pub async fn healthcheck(ctx: Context<'_>) -> Result<(), Error> {
     ctx.say("Hi!").await?;
+    Ok(())
+}
+
+/// Which version of OBot runs, with a link to its source
+#[poise::command(slash_command, ephemeral)]
+pub async fn version(ctx: Context<'_>) -> Result<(), Error> {
+    // `<…>` keeps Discord from adding link previews
+    let commit = match version::commit_url() {
+        Some(url) => format!("[{}](<{url}>)", version::COMMIT),
+        None => version::COMMIT.to_owned(),
+    };
+    ctx.say(format!(
+        "OBot v{} ({commit})\nSource: <{}>",
+        version::NUMBER,
+        version::REPOSITORY
+    ))
+    .await?;
     Ok(())
 }
 

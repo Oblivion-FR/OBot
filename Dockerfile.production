@@ -2,6 +2,8 @@
 FROM rust:1.98.1-slim-trixie AS build
 WORKDIR /app
 COPY . .
+# Commit shown in the bot's status, passed by CI: `.git` isn't in the build context
+ARG OBOT_COMMIT
 # The cache mounts keep downloaded crates and compiled dependencies between builds. `target` lives
 # in the cache, so the binary is copied out of it in the same step.
 RUN --mount=type=cache,target=/usr/local/cargo/registry \

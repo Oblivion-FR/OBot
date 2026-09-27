@@ -78,6 +78,7 @@ jobs:
           context: .
           file: Dockerfile.${{ matrix.environment }}
           platforms: linux/${{ matrix.platform.arch }}
+          build-args: OBOT_COMMIT=${{ github.sha }}
           labels: ${{ steps.meta.outputs.labels }}
           outputs: type=image,name=${{ steps.image.outputs.name }},push-by-digest=true,name-canonical=true,push=${{ github.event_name != 'pull_request' }}
           cache-from: type=gha,scope=${{ matrix.environment }}-${{ matrix.platform.arch }}

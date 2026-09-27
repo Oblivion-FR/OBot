@@ -10,12 +10,13 @@ cache and HTTP client, and the Hypixel client.
 
 | Module                                       | Role                                                                                      |
 |----------------------------------------------|-------------------------------------------------------------------------------------------|
-| [`commands`](../src/commands.rs)             | Slash commands: `/verify`, `/healthcheck`                                                 |
+| [`commands`](../src/commands.rs)             | Slash commands: `/verify`, `/version`, `/healthcheck`                                     |
 | [`verification`](../src/verification/mod.rs) | Verification logic shared by `/verify` and the panel: ownership check,                    |
 |                                              | role and nickname sync, removal, one account per member                                   |
 | [`hypixel`](../src/hypixel/mod.rs)           | Hypixel and Mojang API types, and the shared [`Hypixel` client](../src/hypixel/client.rs) |
 |                                              | with its [rate limiter](../src/hypixel/limit/mod.rs)                                      |
 | [`nickname`](../src/nickname/mod.rs)         | Nickname format and rendering                                                             |
+| [`version`](../src/version/mod.rs)           | Version and commit of the build (set by `build.rs`), with links to the repository         |
 | [`env_files`](../src/env_files/mod.rs)       | Loads `.env` files for the current mode (`OBOT_ENV`)                                      |
 | [`config`](../src/config.rs)                 | Database access: server settings, rules, nickname format, verified members                |
 | [`cache`](../src/cache.rs)                   | Small time-limited cache used by the panel and the Hypixel client                         |
