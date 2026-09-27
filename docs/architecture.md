@@ -1,6 +1,6 @@
 # Architecture
 
-OBot is one binary. [`main.rs`](../src/main.rs) reads the configuration, opens the database, then
+OBot is one binary. [`main.rs`](../src/main.rs) reads the configuration from the environment and `.env` files, opens the database, then
 runs the Discord bot ([poise](https://github.com/serenity-rs/poise) on
 [serenity](https://github.com/serenity-rs/serenity)) and the web panel
 ([axum](https://github.com/tokio-rs/axum)) side by side. Both share the database, the Discord
@@ -14,6 +14,7 @@ cache and HTTP client, and the Hypixel client.
 | [`verification`](../src/verification/mod.rs) | Verification logic shared by `/verify` and the panel: ownership check, role and nickname sync, removal, one account per member |
 | [`hypixel`](../src/hypixel/mod.rs) | Hypixel and Mojang API types, and the shared [`Hypixel` client](../src/hypixel/client.rs) with its [rate limiter](../src/hypixel/limit/mod.rs) |
 | [`nickname`](../src/nickname/mod.rs) | Nickname format and rendering |
+| [`env_files`](../src/env_files/mod.rs) | Loads `.env` files for the current mode (`OBOT_ENV`) |
 | [`config`](../src/config.rs) | Database access: server settings, rules, nickname format, verified members |
 | [`cache`](../src/cache.rs) | Small time-limited cache used by the panel and the Hypixel client |
 | [`web`](../src/web/mod.rs) | Panel router, shared state, access checks |

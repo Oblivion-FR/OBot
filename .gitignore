@@ -22,6 +22,8 @@ target
 
 # Secrets
 .env
+.env.*
+!.env.example
 
 # Local database
 *.db

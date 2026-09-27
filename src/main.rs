@@ -1,6 +1,7 @@
 mod cache;
 mod commands;
 mod config;
+mod env_files;
 mod hypixel;
 mod nickname;
 mod verification;
@@ -36,8 +37,13 @@ fn parse_id(name: &str, value: &str) -> Result<NonZeroU64, Error> {
 
 #[tokio::main]
 async fn main() -> Result<(), Error> {
-    // A missing .env is fine: variables can also come from the real environment
-    let _ = dotenvy::dotenv();
+    let mode = env_files::mode(var("OBOT_ENV").ok())?;
+    let loaded = env_files::load(&mode)?;
+    if loaded.is_empty() {
+        println!("Environment: {mode}, no .env file found, using environment variables");
+    } else {
+        println!("Environment: {mode}, loaded {}", loaded.join(", "));
+    }
 
     let token = required_env("DISCORD_TOKEN")?;
     let client_secret = required_env("DISCORD_CLIENT_SECRET")?;

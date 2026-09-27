@@ -3,7 +3,9 @@
 ## Getting started
 
 Follow [setup.md](setup.md) to get a bot running. A separate test Discord application
-and test server are recommended, with `GUILD_ID` set so slash commands update instantly.
+and test server are recommended: put their token, client secret and `GUILD_ID` (so slash
+commands update instantly) in `.env.development`, which `cargo run` reads over `.env`. See
+[environment files](setup.md#environment-files).
 
 ## Checks
 

@@ -31,6 +31,28 @@ per minute for other uses of the same key, and waits for the next minute instead
 
 Copy `.env.example` to `.env` and fill it in. Variables can also come from the real environment.
 
+### Environment files
+
+OBot runs in a mode: `development` by default for debug builds (`cargo run`), `production` for
+release builds (`cargo run --release`). Set `OBOT_ENV` in the real environment to pick another,
+for example `OBOT_ENV=staging`.
+
+Settings are read from these files, most important first, and each variable takes its value from
+the first place that defines it:
+
+1. Real environment variables, which always win
+2. `.env.<mode>.local`: your machine only, for this mode
+3. `.env.<mode>`: this mode, for example `.env.production`
+4. `.env.local`: your machine only, every mode
+5. `.env`: every mode
+
+Missing files are skipped, so a single `.env` is enough. A mode file only needs the variables
+that differ, like a test bot's token in `.env.development`. Every `.env*` file except
+`.env.example` is ignored by git, since they hold secrets. On startup the bot prints its mode and
+the files it read.
+
+### Variables
+
 | Variable | Required | Default | Purpose |
 | --- | --- | --- | --- |
 | `DISCORD_TOKEN` | yes | | Bot token |
