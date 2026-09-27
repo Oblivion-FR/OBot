@@ -84,6 +84,7 @@ async fn main() -> Result<(), Error> {
         commands::healthcheck(),
         commands::version(),
         commands::verify(),
+        commands::whois(),
     ];
     i18n::localize_commands(&mut commands);
     let framework = poise::Framework::builder()

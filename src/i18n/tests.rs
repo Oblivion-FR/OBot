@@ -83,7 +83,7 @@ fn unknown_messages_show_their_id() {
 
 #[test]
 fn commands_get_their_texts_in_every_language() {
-    let mut commands = vec![crate::commands::verify()];
+    let mut commands = vec![crate::commands::verify(), crate::commands::whois()];
     localize_commands(&mut commands);
     let verify = &commands[0];
     assert_eq!(

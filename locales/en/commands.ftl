@@ -6,6 +6,11 @@ command-version-description = Which version of OBot runs, with a link to its sou
 command-verify-description = Get your roles by proving you own a Minecraft account
 command-verify-username = username
 command-verify-username-description = Your Minecraft username
+command-whois-description = Which Minecraft account a member verified with, or which member verified an account
+command-whois-member = member
+command-whois-member-description = A member of this server
+command-whois-minecraft = minecraft
+command-whois-minecraft-description = A Minecraft username
 
 healthcheck-reply = Hi!
 version-reply =
@@ -24,6 +29,13 @@ verify-roles-added = Roles added: { $roles }
 verify-roles-removed = Roles removed: { $roles }
 verify-nickname-set = Nickname set to `{ $nickname }`
 verify-nickname-skipped = ⚠️ Nickname not changed to `{ $nickname }`: { $reason }.
+
+whois-missing = Give a member, a Minecraft username, or both.
+whois-verified = { $member } is verified as [`{ $name }`](<https://namemc.com/profile/{ $uuid }>) since { $since }.
+whois-verified-by = { $member } was verified as [`{ $name }`](<https://namemc.com/profile/{ $uuid }>) by { $admin } on { $since }.
+whois-not-verified = { $member } isn't verified.
+whois-unknown-account = No Minecraft account is named `{ $name }`.
+whois-account-free = `{ $name }` isn't linked to any member of this server.
 
 ## Why a member couldn't be renamed, in /verify replies and the panel
 

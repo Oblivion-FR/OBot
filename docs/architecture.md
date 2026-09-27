@@ -10,7 +10,7 @@ cache and HTTP client, and the Hypixel client.
 
 | Module                                       | Role                                                                                      |
 |----------------------------------------------|-------------------------------------------------------------------------------------------|
-| [`commands`](../src/commands.rs)             | Slash commands: `/verify`, `/version`, `/healthcheck`                                     |
+| [`commands`](../src/commands.rs)             | Slash commands: `/verify`, `/whois`, `/version`, `/healthcheck`                           |
 | [`verification`](../src/verification/mod.rs) | Verification logic shared by `/verify` and the panel: ownership check,                    |
 |                                              | role and nickname sync, removal, one account per member                                   |
 | [`resync`](../src/resync/mod.rs)             | Refreshes every verified member on a schedule (`RESYNC_INTERVAL_HOURS`)                   |

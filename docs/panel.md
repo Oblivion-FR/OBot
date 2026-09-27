@@ -37,6 +37,10 @@ A failed check is always retried live against Hypixel, so a member who links the
 after a failed attempt can verify straight away. Successful lookups are reused for up to
 10 minutes, so a rank change can take that long to show on a new `/verify`.
 
+`/whois` looks a link up from Discord: give it a member to see their Minecraft account, or a
+Minecraft username to see who verified with it, along with when and by whom. Only members with
+**Manage Roles** see it by default; the server's **Integrations** settings can open it to others.
+
 ## Sections
 
 ### Overview

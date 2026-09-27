@@ -39,6 +39,95 @@ pub async fn version(ctx: Context<'_>) -> Result<(), Error> {
     Ok(())
 }
 
+/// How a verified member is described, with when and by whom they were verified
+fn describe_verified(
+    lang: Lang,
+    user_id: serenity::UserId,
+    stored: &config::VerifiedMember,
+) -> String {
+    // Discord shows these timestamps in each reader's own time zone and language
+    let since = format!("<t:{}:D>", stored.verified_at);
+    let member = format!("<@{user_id}>");
+    match stored.forced_by {
+        Some(admin) => tr!(
+            lang,
+            "whois-verified-by",
+            member = member,
+            name = stored.minecraft_name.as_str(),
+            uuid = stored.minecraft_uuid.as_str(),
+            admin = format!("<@{admin}>"),
+            since = since
+        ),
+        None => tr!(
+            lang,
+            "whois-verified",
+            member = member,
+            name = stored.minecraft_name.as_str(),
+            uuid = stored.minecraft_uuid.as_str(),
+            since = since
+        ),
+    }
+}
+
+/// Moderators only by default: server admins can open it to others in the integration settings
+#[poise::command(
+    slash_command,
+    guild_only,
+    ephemeral,
+    default_member_permissions = "MANAGE_ROLES"
+)]
+pub async fn whois(
+    ctx: Context<'_>,
+    member: Option<serenity::User>,
+    minecraft: Option<String>,
+) -> Result<(), Error> {
+    let lang = lang(ctx);
+    let data = ctx.data();
+    let guild_id = ctx.guild_id().ok_or("whois is guild only")?;
+    if member.is_none() && minecraft.is_none() {
+        ctx.say(lang.t("whois-missing")).await?;
+        return Ok(());
+    }
+
+    let mut lines = Vec::new();
+    if let Some(user) = member {
+        lines.push(
+            match config::get_verified_member(&data.db, guild_id, user.id).await? {
+                Some(stored) => describe_verified(lang, user.id, &stored),
+                None => tr!(
+                    lang,
+                    "whois-not-verified",
+                    member = format!("<@{}>", user.id)
+                ),
+            },
+        );
+    }
+    if let Some(username) = minecraft {
+        let owner = match hypixel::fetch_mojang_profile(&data.http, username.trim()).await? {
+            None => Err(tr!(lang, "whois-unknown-account", name = username.trim())),
+            Some(profile) => {
+                match config::find_account_owner(&data.db, guild_id, &profile.id).await? {
+                    None => Err(tr!(
+                        lang,
+                        "whois-account-free",
+                        name = profile.name.as_str()
+                    )),
+                    Some(owner) => Ok(owner),
+                }
+            }
+        };
+        lines.push(match owner {
+            Err(line) => line,
+            Ok(owner) => match config::get_verified_member(&data.db, guild_id, owner).await? {
+                Some(stored) => describe_verified(lang, owner, &stored),
+                None => tr!(lang, "whois-not-verified", member = format!("<@{owner}>")),
+            },
+        });
+    }
+    ctx.say(lines.join("\n")).await?;
+    Ok(())
+}
+
 fn mention_roles(roles: &BTreeSet<serenity::RoleId>) -> String {
     roles
         .iter()

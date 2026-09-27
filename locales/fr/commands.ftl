@@ -5,6 +5,11 @@ command-healthcheck-description = Vérifie que le bot fonctionne
 command-version-description = Version d'OBot en service, avec un lien vers son code source
 command-verify-description = Obtiens tes rôles en prouvant que tu possèdes un compte Minecraft
 command-verify-username = pseudo
+command-whois-description = Le compte Minecraft avec lequel un membre s'est vérifié, ou le membre qui a vérifié un compte
+command-whois-member = membre
+command-whois-member-description = Un membre de ce serveur
+command-whois-minecraft = minecraft
+command-whois-minecraft-description = Un pseudo Minecraft
 command-verify-username-description = Ton pseudo Minecraft
 
 healthcheck-reply = Salut !
@@ -24,6 +29,13 @@ verify-roles-added = Rôles ajoutés : { $roles }
 verify-roles-removed = Rôles retirés : { $roles }
 verify-nickname-set = Pseudo changé en `{ $nickname }`
 verify-nickname-skipped = ⚠️ Pseudo non changé en `{ $nickname }` : { $reason }.
+
+whois-missing = Donne un membre, un pseudo Minecraft, ou les deux.
+whois-verified = { $member } est vérifié en tant que [`{ $name }`](<https://namemc.com/profile/{ $uuid }>) depuis le { $since }.
+whois-verified-by = { $member } a été vérifié en tant que [`{ $name }`](<https://namemc.com/profile/{ $uuid }>) par { $admin } le { $since }.
+whois-not-verified = { $member } n'est pas vérifié.
+whois-unknown-account = Aucun compte Minecraft ne s'appelle `{ $name }`.
+whois-account-free = `{ $name }` n'est lié à aucun membre de ce serveur.
 
 ## Pourquoi un membre n'a pas pu être renommé, dans les réponses de /verify et le panel
 
