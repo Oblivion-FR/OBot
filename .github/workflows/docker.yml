@@ -5,6 +5,8 @@ name: Docker images
 on:
   push:
     branches: [main]
+    # Releases, like `v0.2.0`
+    tags: ['v*']
   pull_request:
   workflow_dispatch:
 
@@ -120,14 +122,16 @@ jobs:
       - id: image
         run: echo "name=ghcr.io/${GITHUB_REPOSITORY,,}" >> "$GITHUB_OUTPUT"
 
-      # `<environment>` follows the latest build, `<environment>-<commit>` pins one for rollbacks
+      # `<environment>` follows the latest build of `main` only, so tagging an older commit can't
+      # roll it back. `<environment>-<commit>` pins a build, `<environment>-v<version>` a release.
       - id: meta
         uses: docker/metadata-action@v6
         with:
           images: ${{ steps.image.outputs.name }}
           tags: |
-            type=raw,value=${{ matrix.environment }}
+            type=raw,value=${{ matrix.environment }},enable={{is_default_branch}}
             type=sha,prefix=${{ matrix.environment }}-
+            type=ref,event=tag,prefix=${{ matrix.environment }}-
 
       - uses: docker/setup-buildx-action@v4
 

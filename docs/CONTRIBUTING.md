@@ -80,6 +80,15 @@ their base image (`FROM rust:<version>-…`), and CI fails if a Dockerfile doesn
 To upgrade, change the version in `rust-toolchain.toml` and in both Dockerfiles, then fix what the
 new clippy reports.
 
+## Releases
+
+1. Raise `version` in `Cargo.toml` and run `cargo check` so `Cargo.lock` follows.
+2. Commit it as `chore(release): vX.Y.Z`.
+3. Tag that commit `vX.Y.Z` with an annotated tag summarizing the release, and push the tag.
+
+CI then publishes `production-vX.Y.Z` and `development-vX.Y.Z`, which Portainer can pin with
+`OBOT_TAG`. The bot's status and `/version` show the new version.
+
 ## Code conventions
 
 - **Tests** live next to the module they test, in a `tests.rs` file declared with

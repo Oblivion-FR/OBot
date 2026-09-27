@@ -19,15 +19,18 @@ separate Discord application for each, so testing never touches the production b
 ## Images
 
 GitHub Actions ([`.github/workflows/docker.yml`](../.github/workflows/docker.yml)) builds both
-images on every push to `main`, after the same checks as pre-commit (format, clippy, tests), and
+images on every push to `main` and every release tag like `v0.2.0`, after the same checks as pre-commit (format, clippy, tests), and
 publishes them to the GitHub container registry. Every image exists for x86-64 (`amd64`) and ARM64
 (`arm64`, like a Raspberry Pi) under the same tag, and Docker pulls the one matching the server.
 Each architecture is built on a native GitHub runner, since compiling Rust under emulation is
-much slower. Each build is tagged twice:
+much slower. The images are tagged:
 
-- `production` / `development`: the latest build of `main`, used by default
+- `production` / `development`: the latest build of `main`, used by default. Release tags don't
+  move them, so tagging an older commit can't roll them back
 - `production-<commit>` / `development-<commit>`, like `production-9bcd1a5`: that exact build,
   for pinning or rolling back with `OBOT_TAG`
+- `production-v<version>` / `development-v<version>`, like `production-v0.2.0`: a release, built
+  when its git tag is pushed
 
 Pull requests build the images without publishing them, to check they still build.
 
