@@ -235,6 +235,47 @@ pub async fn add_rule(
     Ok(())
 }
 
+/// Replaces what a rule checks, the role it gives and its group
+pub async fn update_rule(
+    db: &SqlitePool,
+    guild_id: serenity::GuildId,
+    rule_id: i64,
+    kind: RuleKind,
+    value: &str,
+    role_id: serenity::RoleId,
+    group_id: Option<i64>,
+) -> Result<(), Error> {
+    // Scoped by guild so a panel user can only change rules of a guild they manage
+    sqlx::query(
+        "UPDATE role_rule SET kind = ?, value = ?, role_id = ?, group_id = ?
+         WHERE id = ? AND guild_id = ?",
+    )
+    .bind(kind.as_str())
+    .bind(value)
+    .bind(to_db(role_id))
+    .bind(group_id)
+    .bind(rule_id)
+    .bind(to_db(guild_id))
+    .execute(db)
+    .await?;
+    Ok(())
+}
+
+pub async fn set_rule_group(
+    db: &SqlitePool,
+    guild_id: serenity::GuildId,
+    rule_id: i64,
+    group_id: Option<i64>,
+) -> Result<(), Error> {
+    sqlx::query("UPDATE role_rule SET group_id = ? WHERE id = ? AND guild_id = ?")
+        .bind(group_id)
+        .bind(rule_id)
+        .bind(to_db(guild_id))
+        .execute(db)
+        .await?;
+    Ok(())
+}
+
 pub async fn delete_rule(
     db: &SqlitePool,
     guild_id: serenity::GuildId,
@@ -291,6 +332,25 @@ pub async fn add_group(
         .bind(to_db(separator_role_id))
         .execute(db)
         .await?;
+    Ok(())
+}
+
+pub async fn update_group(
+    db: &SqlitePool,
+    guild_id: serenity::GuildId,
+    group_id: i64,
+    name: &str,
+    separator_role_id: serenity::RoleId,
+) -> Result<(), Error> {
+    sqlx::query(
+        "UPDATE rule_group SET name = ?, separator_role_id = ? WHERE id = ? AND guild_id = ?",
+    )
+    .bind(name)
+    .bind(to_db(separator_role_id))
+    .bind(group_id)
+    .bind(to_db(guild_id))
+    .execute(db)
+    .await?;
     Ok(())
 }
 

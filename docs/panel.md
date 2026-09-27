@@ -111,6 +111,9 @@ A rule gives a role when a condition matches, and removes it when it stops match
 
 Guild ranks are picked from the linked guild's current ranks.
 
+The pencil button of a rule edits it: its condition, the role it gives and its group. Changes
+apply to members at their next verification or refresh.
+
 #### Groups and separator roles
 
 Separator roles are the dividers of a member's role list, like `━━ Ranks ━━` placed above the
@@ -119,7 +122,9 @@ of the group matches, and lose it when none does. A member without any rank role
 empty `━━ Ranks ━━` header.
 
 Create a group with its name and separator role, then pick the group when adding a rule. Rules
-can also stay without a group. Deleting a group keeps its rules, without a group. Removing a
+can also stay without a group. To move a rule, drag it onto another group, or onto **No group**,
+or change its group in its edit dialog. A group's pencil button renames it or changes its
+separator role. Deleting a group keeps its rules, without a group. Removing a
 member's verification also removes their separators.
 
 ### Nickname

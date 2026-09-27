@@ -167,3 +167,64 @@ document.addEventListener("click", (event) => {
     if (!menu.contains(event.target)) menu.open = false;
   });
 });
+
+// Edit dialogs of the rules page. The button carries the form's action and, in `data-field-*`
+// attributes, the value of each field by name.
+document.addEventListener("click", (event) => {
+  const opener = event.target.closest("[data-edit-dialog]");
+  const dialog = opener && document.getElementById(opener.dataset.editDialog);
+  if (!dialog) return;
+  const form = dialog.querySelector("form");
+  form.action = opener.dataset.action;
+  for (const [key, value] of Object.entries(opener.dataset)) {
+    if (!key.startsWith("field")) continue;
+    const name = key.charAt(5).toLowerCase() + key.slice(6);
+    const field = form.elements.namedItem(name);
+    if (field) field.value = value;
+  }
+  dialog.showModal();
+});
+
+// Dragging a rule onto another group moves it there
+(() => {
+  let dragged;
+  const zoneOf = (event) => event.target.closest?.("[data-drop-group]");
+  const clearTargets = () =>
+    document.querySelectorAll(".drop-target").forEach((zone) => zone.classList.remove("drop-target"));
+
+  document.addEventListener("dragstart", (event) => {
+    dragged = event.target.closest?.("[data-rule-id]");
+    if (!dragged) return;
+    event.dataTransfer.effectAllowed = "move";
+    event.dataTransfer.setData("text/plain", dragged.dataset.ruleId);
+    dragged.classList.add("dragging");
+  });
+  document.addEventListener("dragend", () => {
+    dragged?.classList.remove("dragging");
+    dragged = undefined;
+    clearTargets();
+  });
+  document.addEventListener("dragover", (event) => {
+    const zone = zoneOf(event);
+    if (!dragged || !zone || zone.dataset.dropGroup === dragged.dataset.groupId) return;
+    event.preventDefault();
+    clearTargets();
+    zone.classList.add("drop-target");
+  });
+  document.addEventListener("drop", (event) => {
+    const zone = zoneOf(event);
+    if (!dragged || !zone || zone.dataset.dropGroup === dragged.dataset.groupId) return;
+    event.preventDefault();
+    // A plain form post: the page comes back with the rule moved, or with the error
+    const form = document.createElement("form");
+    form.method = "post";
+    form.action = dragged.dataset.moveUrl;
+    const group = document.createElement("input");
+    group.type = "hidden";
+    group.name = "group_id";
+    group.value = zone.dataset.dropGroup;
+    form.append(group);
+    document.body.append(form);
+    form.submit();
+  });
+})();

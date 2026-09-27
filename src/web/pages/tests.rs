@@ -169,10 +169,14 @@ fn verification_page_renders_in_french() {
 
 #[test]
 fn rules_page_renders_groups_rules_and_rank_dropdown() {
-    let rule = |id, condition: &str, role: &str| RuleRow {
+    let rule = |id, condition: &str, role: &str, group_id| RuleRow {
         id,
         condition: condition.to_owned(),
         role: chip(role),
+        kind: "hypixel_rank",
+        value: "MVP_PLUS".to_owned(),
+        role_id: serenity::RoleId::new(11),
+        group_id,
     };
     let html = RulesPage {
         lang: Lang::En,
@@ -185,9 +189,10 @@ fn rules_page_renders_groups_rules_and_rank_dropdown() {
             id: 7,
             name: "Ranks".to_owned(),
             separator: chip("━━ Ranks ━━"),
-            rules: vec![rule(5, "Hypixel rank is MVP+", "MVP+")],
+            separator_role_id: serenity::RoleId::new(12),
+            rules: vec![rule(5, "Hypixel rank is MVP+", "MVP+", Some(7))],
         }],
-        ungrouped: vec![rule(6, "No Hypixel rank", "Default")],
+        ungrouped: vec![rule(6, "No Hypixel rank", "Default", None)],
         rule_count: 2,
         roles: vec![role(11, "Verified", true)],
         ranks: hypixel::RANKS,
@@ -198,7 +203,8 @@ fn rules_page_renders_groups_rules_and_rank_dropdown() {
     .render()
     .expect("template renders");
 
-    assert!(html.contains("2 rules in 1 group<"));
+    assert!(html.contains("2 rules in 1 group"));
+    assert!(html.contains("Drag a rule onto a group to move it."));
     assert!(html.contains("<strong>Ranks</strong>"));
     assert!(html.contains("━━ Ranks ━━"));
     assert!(html.contains("/guilds/2/groups/7/delete"));
@@ -209,6 +215,21 @@ fn rules_page_renders_groups_rules_and_rank_dropdown() {
     assert!(html.contains(r#"<option value="7">Ranks</option>"#));
     assert!(html.contains(r#"<option value="NO_RANK">No rank</option>"#));
     assert!(html.contains(r#"<option value="Officer">Officer</option>"#));
+
+    // Editing and moving
+    assert!(html.contains(r#"data-action="/guilds/2/rules/5""#));
+    assert!(html.contains(r#"data-field-rank="MVP_PLUS""#));
+    assert!(html.contains(r#"data-field-group_id="7""#));
+    assert!(html.contains(r#"data-action="/guilds/2/groups/7""#));
+    assert!(html.contains(r#"data-field-name="Ranks" data-field-separator_role_id="12""#));
+    assert!(
+        html.contains(
+            r#"data-rule-id="5" data-group-id="7" data-move-url="/guilds/2/rules/5/group""#
+        )
+    );
+    assert!(html.contains(r#"<div class="rule-group" data-drop-group="7">"#));
+    assert!(html.contains(r#"<div class="rule-group" data-drop-group="">"#));
+    assert!(html.contains(r#"id="rule-dialog""#) && html.contains(r#"id="group-dialog""#));
 }
 
 #[test]

@@ -307,12 +307,18 @@ struct RuleRow {
     id: i64,
     condition: String,
     role: RoleChip,
+    // What the edit dialog starts from
+    kind: &'static str,
+    value: String,
+    role_id: serenity::RoleId,
+    group_id: Option<i64>,
 }
 
 struct GroupRow {
     id: i64,
     name: String,
     separator: RoleChip,
+    separator_role_id: serenity::RoleId,
     rules: Vec<RuleRow>,
 }
 
@@ -373,6 +379,10 @@ pub async fn rules(
             RuleKind::GuildRank => tr!(lang, "condition-guild-rank", rank = rule.value.as_str()),
         },
         role: state.role_chip(lang, guild_id, rule.role_id),
+        kind: rule.kind.as_str(),
+        value: rule.value.clone(),
+        role_id: rule.role_id,
+        group_id: rule.group_id,
     };
     let rows_in = |group_id: Option<i64>| {
         rules
@@ -387,6 +397,7 @@ pub async fn rules(
             id: group.id,
             name: group.name.clone(),
             separator: state.role_chip(lang, guild_id, group.separator_role_id),
+            separator_role_id: group.separator_role_id,
             rules: rows_in(Some(group.id)),
         })
         .collect();
@@ -425,10 +436,100 @@ pub struct RuleForm {
     rank: String,
     #[serde(default)]
     guild_rank: String,
+    // A selected but disabled option is not submitted at all
+    #[serde(default)]
     role_id: String,
     /// Empty for no group
     #[serde(default)]
     group_id: String,
+}
+
+/// A rule as the add and edit forms describe it
+struct CheckedRule {
+    kind: RuleKind,
+    value: String,
+    role_id: serenity::RoleId,
+    group_id: Option<i64>,
+}
+
+/// The group picked in a form, empty for none. `Err` is the page's error code.
+async fn checked_group(
+    state: &AppState,
+    guild_id: serenity::GuildId,
+    group_id: &str,
+) -> Result<Result<Option<i64>, &'static str>, AppError> {
+    Ok(match group_id.trim() {
+        "" => Ok(None),
+        id => {
+            let groups = config::list_groups(&state.db, guild_id).await?;
+            groups
+                .iter()
+                .find(|group| group.id.to_string() == id)
+                .map(|group| Some(group.id))
+                .ok_or("unknown_group")
+        }
+    })
+}
+
+/// Checks a rule form. Values come from dropdowns, but a stale page or crafted post could send
+/// anything. `Err` is the page's error code, `None` when the form is too broken to explain.
+async fn checked_rule(
+    state: &AppState,
+    access: &Access,
+    form: &RuleForm,
+) -> Result<Result<CheckedRule, Option<&'static str>>, AppError> {
+    let guild_id = access.guild_id;
+    let (Some(kind), Some(role_id)) = (RuleKind::parse(&form.kind), parse_role(&form.role_id))
+    else {
+        return Ok(Err(None));
+    };
+    if !state.is_allowed_role(access, role_id) {
+        return Ok(Err(Some("role_not_allowed")));
+    }
+    let group_id = match checked_group(state, guild_id, &form.group_id).await? {
+        Ok(group_id) => group_id,
+        Err(error) => return Ok(Err(Some(error))),
+    };
+    let hypixel_guild = config::get_config(&state.db, guild_id).await?.hypixel_guild;
+    let value = match kind {
+        RuleKind::HypixelRank => {
+            let rank = form.rank.trim();
+            if !hypixel::RANKS.iter().any(|(key, _)| *key == rank) {
+                return Ok(Err(Some("missing_value")));
+            }
+            rank.to_owned()
+        }
+        RuleKind::GuildMember | RuleKind::GuildRank => {
+            let Some(link) = hypixel_guild else {
+                return Ok(Err(Some("no_hypixel_guild")));
+            };
+            if kind == RuleKind::GuildMember {
+                String::new()
+            } else {
+                let names = match state.guild_rank_names(&link.id).await {
+                    Ok(names) => names,
+                    Err(error) => {
+                        eprintln!("Could not load ranks of Hypixel guild {}: {error}", link.id);
+                        return Ok(Err(Some("guild_ranks_unavailable")));
+                    }
+                };
+                let rank = form.guild_rank.trim();
+                match names
+                    .into_iter()
+                    .find(|name| name.eq_ignore_ascii_case(rank))
+                {
+                    Some(name) => name,
+                    None => return Ok(Err(Some("unknown_guild_rank"))),
+                }
+            }
+        }
+    };
+    Ok(Ok(CheckedRule {
+        kind,
+        value,
+        role_id,
+        group_id,
+    }))
 }
 
 pub async fn add_rule(
@@ -439,61 +540,69 @@ pub async fn add_rule(
 ) -> Result<Response, AppError> {
     let access = or_respond!(state.authorize(guild_id, &user).await);
     let guild_id = access.guild_id;
-    let back = |error| Ok(section_redirect(guild_id, "/rules", error));
-    let (Some(kind), Some(role_id)) = (RuleKind::parse(&form.kind), parse_role(&form.role_id))
-    else {
-        return back(None);
+    let rule = match checked_rule(&state, &access, &form).await? {
+        Ok(rule) => rule,
+        Err(error) => return Ok(section_redirect(guild_id, "/rules", error)),
     };
-    if !state.is_allowed_role(&access, role_id) {
-        return back(Some("role_not_allowed"));
-    }
-    let group_id = match form.group_id.trim() {
-        "" => None,
-        id => {
-            let groups = config::list_groups(&state.db, guild_id).await?;
-            match groups.iter().find(|group| group.id.to_string() == id) {
-                Some(group) => Some(group.id),
-                None => return back(Some("unknown_group")),
-            }
-        }
+    config::add_rule(
+        &state.db,
+        guild_id,
+        rule.kind,
+        &rule.value,
+        rule.role_id,
+        rule.group_id,
+    )
+    .await?;
+    Ok(section_redirect(guild_id, "/rules", None))
+}
+
+pub async fn update_rule(
+    State(state): State<Arc<AppState>>,
+    LoggedIn(user): LoggedIn,
+    Path((guild_id, rule_id)): Path<(NonZeroU64, i64)>,
+    Form(form): Form<RuleForm>,
+) -> Result<Response, AppError> {
+    let access = or_respond!(state.authorize(guild_id, &user).await);
+    let guild_id = access.guild_id;
+    let rule = match checked_rule(&state, &access, &form).await? {
+        Ok(rule) => rule,
+        Err(error) => return Ok(section_redirect(guild_id, "/rules", error)),
     };
-    let hypixel_guild = config::get_config(&state.db, guild_id).await?.hypixel_guild;
-    // Values come from dropdowns, but a stale page or crafted post could send anything
-    let value = match kind {
-        RuleKind::HypixelRank => {
-            let rank = form.rank.trim();
-            if !hypixel::RANKS.iter().any(|(key, _)| *key == rank) {
-                return back(Some("missing_value"));
-            }
-            rank.to_owned()
-        }
-        RuleKind::GuildMember | RuleKind::GuildRank => {
-            let Some(link) = hypixel_guild else {
-                return back(Some("no_hypixel_guild"));
-            };
-            if kind == RuleKind::GuildMember {
-                String::new()
-            } else {
-                let names = match state.guild_rank_names(&link.id).await {
-                    Ok(names) => names,
-                    Err(error) => {
-                        eprintln!("Could not load ranks of Hypixel guild {}: {error}", link.id);
-                        return back(Some("guild_ranks_unavailable"));
-                    }
-                };
-                let rank = form.guild_rank.trim();
-                match names
-                    .into_iter()
-                    .find(|name| name.eq_ignore_ascii_case(rank))
-                {
-                    Some(name) => name,
-                    None => return back(Some("unknown_guild_rank")),
-                }
-            }
-        }
+    config::update_rule(
+        &state.db,
+        guild_id,
+        rule_id,
+        rule.kind,
+        &rule.value,
+        rule.role_id,
+        rule.group_id,
+    )
+    .await?;
+    Ok(section_redirect(guild_id, "/rules", None))
+}
+
+#[derive(Deserialize)]
+pub struct MoveRuleForm {
+    /// Empty for no group
+    #[serde(default)]
+    group_id: String,
+}
+
+/// Moves a rule to another group, from dragging it on the page
+pub async fn move_rule(
+    State(state): State<Arc<AppState>>,
+    LoggedIn(user): LoggedIn,
+    Path((guild_id, rule_id)): Path<(NonZeroU64, i64)>,
+    Form(form): Form<MoveRuleForm>,
+) -> Result<Response, AppError> {
+    let access = or_respond!(state.authorize(guild_id, &user).await);
+    let guild_id = access.guild_id;
+    let group_id = match checked_group(&state, guild_id, &form.group_id).await? {
+        Ok(group_id) => group_id,
+        Err(error) => return Ok(section_redirect(guild_id, "/rules", Some(error))),
     };
-    config::add_rule(&state.db, guild_id, kind, &value, role_id, group_id).await?;
-    back(None)
+    config::set_rule_group(&state.db, guild_id, rule_id, group_id).await?;
+    Ok(section_redirect(guild_id, "/rules", None))
 }
 
 pub async fn delete_rule(
@@ -511,7 +620,28 @@ const MAX_GROUP_NAME_LEN: usize = 50;
 #[derive(Deserialize)]
 pub struct GroupForm {
     name: String,
+    #[serde(default)]
     separator_role_id: String,
+}
+
+/// The group's name and separator role, or the page's error code
+fn checked_group_form(
+    state: &AppState,
+    access: &Access,
+    form: &GroupForm,
+) -> Result<(String, serenity::RoleId), Option<&'static str>> {
+    let name = form.name.trim();
+    if name.is_empty() {
+        return Err(Some("missing_group_name"));
+    }
+    let separator_role_id = parse_role(&form.separator_role_id).ok_or(None)?;
+    if !state.is_allowed_role(access, separator_role_id) {
+        return Err(Some("role_not_allowed"));
+    }
+    Ok((
+        name.chars().take(MAX_GROUP_NAME_LEN).collect(),
+        separator_role_id,
+    ))
 }
 
 pub async fn add_group(
@@ -522,20 +652,30 @@ pub async fn add_group(
 ) -> Result<Response, AppError> {
     let access = or_respond!(state.authorize(guild_id, &user).await);
     let guild_id = access.guild_id;
-    let back = |error| Ok(section_redirect(guild_id, "/rules", error));
-    let name = form.name.trim();
-    if name.is_empty() {
-        return back(Some("missing_group_name"));
+    match checked_group_form(&state, &access, &form) {
+        Ok((name, separator_role_id)) => {
+            config::add_group(&state.db, guild_id, &name, separator_role_id).await?;
+            Ok(section_redirect(guild_id, "/rules", None))
+        }
+        Err(error) => Ok(section_redirect(guild_id, "/rules", error)),
     }
-    let name: String = name.chars().take(MAX_GROUP_NAME_LEN).collect();
-    let Some(separator_role_id) = parse_role(&form.separator_role_id) else {
-        return back(None);
-    };
-    if !state.is_allowed_role(&access, separator_role_id) {
-        return back(Some("role_not_allowed"));
+}
+
+pub async fn update_group(
+    State(state): State<Arc<AppState>>,
+    LoggedIn(user): LoggedIn,
+    Path((guild_id, group_id)): Path<(NonZeroU64, i64)>,
+    Form(form): Form<GroupForm>,
+) -> Result<Response, AppError> {
+    let access = or_respond!(state.authorize(guild_id, &user).await);
+    let guild_id = access.guild_id;
+    match checked_group_form(&state, &access, &form) {
+        Ok((name, separator_role_id)) => {
+            config::update_group(&state.db, guild_id, group_id, &name, separator_role_id).await?;
+            Ok(section_redirect(guild_id, "/rules", None))
+        }
+        Err(error) => Ok(section_redirect(guild_id, "/rules", error)),
     }
-    config::add_group(&state.db, guild_id, &name, separator_role_id).await?;
-    back(None)
 }
 
 pub async fn delete_group(

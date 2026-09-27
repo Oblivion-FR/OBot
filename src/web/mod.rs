@@ -64,10 +64,22 @@ pub fn router(state: AppState) -> Router {
             get(pages::rules).post(pages::add_rule),
         )
         .route(
+            "/guilds/{guild_id}/rules/{rule_id}",
+            post(pages::update_rule),
+        )
+        .route(
+            "/guilds/{guild_id}/rules/{rule_id}/group",
+            post(pages::move_rule),
+        )
+        .route(
             "/guilds/{guild_id}/rules/{rule_id}/delete",
             post(pages::delete_rule),
         )
         .route("/guilds/{guild_id}/groups", post(pages::add_group))
+        .route(
+            "/guilds/{guild_id}/groups/{group_id}",
+            post(pages::update_group),
+        )
         .route(
             "/guilds/{guild_id}/groups/{group_id}/delete",
             post(pages::delete_group),
