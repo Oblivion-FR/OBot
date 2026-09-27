@@ -50,8 +50,12 @@ pub async fn fetch_mojang_profile_by_uuid(
     }
 }
 
+/// Rank rule value for players without any paid or special rank
+pub const NO_RANK: &str = "NO_RANK";
+
 /// Rank keys stored in role rules, with their in-game display name
 pub const RANKS: &[(&str, &str)] = &[
+    (NO_RANK, "No rank"),
     ("VIP", "VIP"),
     ("VIP_PLUS", "VIP+"),
     ("MVP", "MVP"),

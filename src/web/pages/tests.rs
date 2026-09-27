@@ -124,18 +124,26 @@ fn verification_page_renders_roles_and_error() {
 }
 
 #[test]
-fn rules_page_renders_rules_and_rank_dropdown() {
+fn rules_page_renders_groups_rules_and_rank_dropdown() {
+    let rule = |id, condition: &str, role: &str| RuleRow {
+        id,
+        condition: condition.to_owned(),
+        role: chip(role),
+    };
     let html = RulesPage {
         shell: shell(),
         guild: guild(2, "Test", None),
         section: "rules",
         section_title: "Role rules",
         error: None,
-        rules: vec![RuleRow {
-            id: 5,
-            condition: "Hypixel rank is MVP+".to_owned(),
-            role: chip("MVP+"),
+        groups: vec![GroupRow {
+            id: 7,
+            name: "Ranks".to_owned(),
+            separator: chip("━━ Ranks ━━"),
+            rules: vec![rule(5, "Hypixel rank is MVP+", "MVP+")],
         }],
+        ungrouped: vec![rule(6, "No Hypixel rank", "Default")],
+        rule_count: 2,
         roles: vec![role(11, "Verified", true)],
         ranks: hypixel::RANKS,
         hypixel_guild: Some("My Guild".to_owned()),
@@ -145,8 +153,16 @@ fn rules_page_renders_rules_and_rank_dropdown() {
     .render()
     .expect("template renders");
 
+    assert!(html.contains("2 rules in 1 group<"));
+    assert!(html.contains("<strong>Ranks</strong>"));
+    assert!(html.contains("━━ Ranks ━━"));
+    assert!(html.contains("/guilds/2/groups/7/delete"));
     assert!(html.contains("/guilds/2/rules/5/delete"));
+    assert!(html.contains("/guilds/2/rules/6/delete"));
+    assert!(html.contains("<strong>No group</strong>"));
     assert!(html.contains("--role-color: #3ba55d"));
+    assert!(html.contains(r#"<option value="7">Ranks</option>"#));
+    assert!(html.contains(r#"<option value="NO_RANK">No rank</option>"#));
     assert!(html.contains(r#"<option value="Officer">Officer</option>"#));
 }
 

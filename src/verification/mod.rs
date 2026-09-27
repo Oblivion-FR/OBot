@@ -3,7 +3,7 @@ use sqlx::SqlitePool;
 use std::collections::BTreeSet;
 
 use crate::Error;
-use crate::config::{self, RuleKind};
+use crate::config::{self, Rule, RuleGroup, RuleKind};
 use crate::hypixel::{self, Hypixel, MojangProfile, Player};
 use crate::nickname;
 
@@ -89,6 +89,59 @@ fn can_rename(
     }
 }
 
+/// Whether a rule applies to a player, from their Hypixel rank (`None` without one) and their
+/// rank in the linked guild (`None` when not in it)
+pub fn rule_matches(rule: &Rule, rank: Option<&str>, guild_rank: Option<&str>) -> bool {
+    match rule.kind {
+        RuleKind::HypixelRank => rank.unwrap_or(hypixel::NO_RANK) == rule.value,
+        RuleKind::GuildMember => guild_rank.is_some(),
+        RuleKind::GuildRank => {
+            guild_rank.is_some_and(|rank| rank.eq_ignore_ascii_case(&rule.value))
+        }
+    }
+}
+
+/// Roles a member should and shouldn't have, before looking at what they have now
+#[derive(Debug, PartialEq)]
+pub struct RolePlan {
+    pub wanted: BTreeSet<serenity::RoleId>,
+    pub unwanted: BTreeSet<serenity::RoleId>,
+}
+
+/// Every role the verification manages is kept in sync: a rule's role while the rule matches,
+/// a group's separator while any of its rules matches, and the verified and unverified roles.
+/// A role wanted for one reason is never removed for another.
+pub fn plan_roles(
+    verified_role_id: serenity::RoleId,
+    unverified_role_id: Option<serenity::RoleId>,
+    rules: &[Rule],
+    groups: &[RuleGroup],
+    rank: Option<&str>,
+    guild_rank: Option<&str>,
+) -> RolePlan {
+    let mut wanted = BTreeSet::from([verified_role_id]);
+    let mut unwanted = BTreeSet::new();
+    let mut matched_groups = BTreeSet::new();
+    for rule in rules {
+        if rule_matches(rule, rank, guild_rank) {
+            wanted.insert(rule.role_id);
+            matched_groups.extend(rule.group_id);
+        } else {
+            unwanted.insert(rule.role_id);
+        }
+    }
+    for group in groups {
+        if matched_groups.contains(&group.id) {
+            wanted.insert(group.separator_role_id);
+        } else {
+            unwanted.insert(group.separator_role_id);
+        }
+    }
+    unwanted.extend(unverified_role_id);
+    unwanted.retain(|role| !wanted.contains(role));
+    RolePlan { wanted, unwanted }
+}
+
 /// Applies a proven Minecraft account to a member: roles from the rules, nickname, and the
 /// stored link used to re-verify them later
 #[allow(clippy::too_many_arguments)]
@@ -104,6 +157,7 @@ pub async fn sync_member(
     forced_by: Option<serenity::UserId>,
 ) -> Result<Outcome, Error> {
     let rules = config::list_rules(services.db, guild_id).await?;
+    let groups = config::list_groups(services.db, guild_id).await?;
     let nickname_format = config::get_nickname_format(services.db, guild_id).await?;
     let needs_guild = rules.iter().any(|rule| rule.kind != RuleKind::HypixelRank)
         || (nickname_format.enabled && nickname_format.needs_guild());
@@ -121,25 +175,17 @@ pub async fn sync_member(
         .as_ref()
         .and_then(|guild| guild.member_rank(&profile.id));
 
-    // Roles referenced by rules are kept in sync: granted when the rule matches, removed otherwise
-    let mut added = BTreeSet::from([verified_role_id]);
-    let mut removed = BTreeSet::new();
-    for rule in &rules {
-        let matches = match rule.kind {
-            RuleKind::HypixelRank => player.rank.as_deref() == Some(rule.value.as_str()),
-            RuleKind::GuildMember => guild_rank.is_some(),
-            RuleKind::GuildRank => {
-                guild_rank.is_some_and(|rank| rank.eq_ignore_ascii_case(&rule.value))
-            }
-        };
-        if matches {
-            added.insert(rule.role_id);
-        } else {
-            removed.insert(rule.role_id);
-        }
-    }
-    removed.extend(unverified_role_id);
-    removed.retain(|role| !added.contains(role));
+    let RolePlan {
+        wanted: mut added,
+        unwanted: mut removed,
+    } = plan_roles(
+        verified_role_id,
+        unverified_role_id,
+        &rules,
+        &groups,
+        player.rank.as_deref(),
+        guild_rank,
+    );
     added.retain(|role| !member.roles.contains(role));
     removed.retain(|role| member.roles.contains(role));
 
@@ -268,9 +314,11 @@ pub async fn unverify_member(
     unverified_role_id: Option<serenity::RoleId>,
 ) -> Result<Outcome, Error> {
     let rules = config::list_rules(services.db, guild_id).await?;
+    let groups = config::list_groups(services.db, guild_id).await?;
     let mut removed: BTreeSet<_> = verified_role_id
         .into_iter()
         .chain(rules.iter().map(|rule| rule.role_id))
+        .chain(groups.iter().map(|group| group.separator_role_id))
         .filter(|role| member.roles.contains(role))
         .collect();
     let added: BTreeSet<_> = unverified_role_id

@@ -88,6 +88,8 @@ fn error_message(code: &str) -> Option<&'static str> {
         "unknown_guild_rank" => "This rank doesn't exist in the Hypixel guild anymore.",
         "guild_ranks_unavailable" => "Couldn't load the guild ranks from Hypixel, try again later.",
         "role_not_allowed" => "You can only pick roles below your highest role.",
+        "missing_group_name" => "A group needs a name.",
+        "unknown_group" => "This group doesn't exist anymore.",
         _ => return None,
     })
 }
@@ -289,6 +291,13 @@ struct RuleRow {
     role: RoleChip,
 }
 
+struct GroupRow {
+    id: i64,
+    name: String,
+    separator: RoleChip,
+    rules: Vec<RuleRow>,
+}
+
 #[derive(Template)]
 #[template(path = "rules.html")]
 struct RulesPage {
@@ -297,7 +306,10 @@ struct RulesPage {
     section: &'static str,
     section_title: &'static str,
     error: Option<&'static str>,
-    rules: Vec<RuleRow>,
+    groups: Vec<GroupRow>,
+    /// Rules outside any group
+    ungrouped: Vec<RuleRow>,
+    rule_count: usize,
     roles: Vec<RoleOption>,
     ranks: &'static [(&'static str, &'static str)],
     hypixel_guild: Option<String>,
@@ -315,6 +327,7 @@ pub async fn rules(
     let guild_id = ctx.access.guild_id;
     let config = config::get_config(&state.db, guild_id).await?;
     let rules = config::list_rules(&state.db, guild_id).await?;
+    let groups = config::list_groups(&state.db, guild_id).await?;
     let (guild_ranks, guild_ranks_error) = match &config.hypixel_guild {
         None => (Vec::new(), false),
         Some(link) => match state.guild_rank_names(&link.id).await {
@@ -326,19 +339,42 @@ pub async fn rules(
         },
     };
 
-    let rules = rules
+    let row = |rule: &config::Rule| RuleRow {
+        id: rule.id,
+        condition: match rule.kind {
+            RuleKind::HypixelRank if rule.value == hypixel::NO_RANK => "No Hypixel rank".to_owned(),
+            RuleKind::HypixelRank => {
+                format!("Hypixel rank is {}", hypixel::rank_label(&rule.value))
+            }
+            RuleKind::GuildMember => "Member of the Hypixel guild".to_owned(),
+            RuleKind::GuildRank => format!("Guild rank is {}", rule.value),
+        },
+        role: state.role_chip(guild_id, rule.role_id),
+    };
+    let rows_in = |group_id: Option<i64>| {
+        rules
+            .iter()
+            .filter(|rule| rule.group_id == group_id)
+            .map(row)
+            .collect::<Vec<_>>()
+    };
+    let group_rows = groups
         .iter()
-        .map(|rule| RuleRow {
-            id: rule.id,
-            condition: match rule.kind {
-                RuleKind::HypixelRank => {
-                    format!("Hypixel rank is {}", hypixel::rank_label(&rule.value))
-                }
-                RuleKind::GuildMember => "Member of the Hypixel guild".to_owned(),
-                RuleKind::GuildRank => format!("Guild rank is {}", rule.value),
-            },
-            role: state.role_chip(guild_id, rule.role_id),
+        .map(|group| GroupRow {
+            id: group.id,
+            name: group.name.clone(),
+            separator: state.role_chip(guild_id, group.separator_role_id),
+            rules: rows_in(Some(group.id)),
         })
+        .collect();
+    // A rule of a group deleted meanwhile shows with the ungrouped ones
+    let ungrouped = rules
+        .iter()
+        .filter(|rule| {
+            rule.group_id
+                .is_none_or(|id| !groups.iter().any(|group| group.id == id))
+        })
+        .map(row)
         .collect();
 
     render(RulesPage {
@@ -348,7 +384,9 @@ pub async fn rules(
         section: "rules",
         section_title: "Role rules",
         error: params.error.as_deref().and_then(error_message),
-        rules,
+        groups: group_rows,
+        ungrouped,
+        rule_count: rules.len(),
         ranks: hypixel::RANKS,
         hypixel_guild: config.hypixel_guild.map(|link| link.name),
         guild_ranks,
@@ -364,6 +402,9 @@ pub struct RuleForm {
     #[serde(default)]
     guild_rank: String,
     role_id: String,
+    /// Empty for no group
+    #[serde(default)]
+    group_id: String,
 }
 
 pub async fn add_rule(
@@ -382,6 +423,16 @@ pub async fn add_rule(
     if !state.is_allowed_role(&access, role_id) {
         return back(Some("role_not_allowed"));
     }
+    let group_id = match form.group_id.trim() {
+        "" => None,
+        id => {
+            let groups = config::list_groups(&state.db, guild_id).await?;
+            match groups.iter().find(|group| group.id.to_string() == id) {
+                Some(group) => Some(group.id),
+                None => return back(Some("unknown_group")),
+            }
+        }
+    };
     let hypixel_guild = config::get_config(&state.db, guild_id).await?.hypixel_guild;
     // Values come from dropdowns, but a stale page or crafted post could send anything
     let value = match kind {
@@ -417,7 +468,7 @@ pub async fn add_rule(
             }
         }
     };
-    config::add_rule(&state.db, guild_id, kind, &value, role_id).await?;
+    config::add_rule(&state.db, guild_id, kind, &value, role_id, group_id).await?;
     back(None)
 }
 
@@ -428,6 +479,48 @@ pub async fn delete_rule(
 ) -> Result<Response, AppError> {
     let access = or_respond!(state.authorize(guild_id, &user).await);
     config::delete_rule(&state.db, access.guild_id, rule_id).await?;
+    Ok(section_redirect(access.guild_id, "/rules", None))
+}
+
+const MAX_GROUP_NAME_LEN: usize = 50;
+
+#[derive(Deserialize)]
+pub struct GroupForm {
+    name: String,
+    separator_role_id: String,
+}
+
+pub async fn add_group(
+    State(state): State<Arc<AppState>>,
+    LoggedIn(user): LoggedIn,
+    Path(guild_id): Path<NonZeroU64>,
+    Form(form): Form<GroupForm>,
+) -> Result<Response, AppError> {
+    let access = or_respond!(state.authorize(guild_id, &user).await);
+    let guild_id = access.guild_id;
+    let back = |error| Ok(section_redirect(guild_id, "/rules", error));
+    let name = form.name.trim();
+    if name.is_empty() {
+        return back(Some("missing_group_name"));
+    }
+    let name: String = name.chars().take(MAX_GROUP_NAME_LEN).collect();
+    let Some(separator_role_id) = parse_role(&form.separator_role_id) else {
+        return back(None);
+    };
+    if !state.is_allowed_role(&access, separator_role_id) {
+        return back(Some("role_not_allowed"));
+    }
+    config::add_group(&state.db, guild_id, &name, separator_role_id).await?;
+    back(None)
+}
+
+pub async fn delete_group(
+    State(state): State<Arc<AppState>>,
+    LoggedIn(user): LoggedIn,
+    Path((guild_id, group_id)): Path<(NonZeroU64, i64)>,
+) -> Result<Response, AppError> {
+    let access = or_respond!(state.authorize(guild_id, &user).await);
+    config::delete_group(&state.db, access.guild_id, group_id).await?;
     Ok(section_redirect(access.guild_id, "/rules", None))
 }
 

@@ -138,11 +138,12 @@ pub struct Rule {
     pub kind: RuleKind,
     pub value: String,
     pub role_id: serenity::RoleId,
+    pub group_id: Option<i64>,
 }
 
 pub async fn list_rules(db: &SqlitePool, guild_id: serenity::GuildId) -> Result<Vec<Rule>, Error> {
-    let rows: Vec<(i64, String, String, i64)> = sqlx::query_as(
-        "SELECT id, kind, value, role_id FROM role_rule WHERE guild_id = ? ORDER BY id",
+    let rows: Vec<(i64, String, String, i64, Option<i64>)> = sqlx::query_as(
+        "SELECT id, kind, value, role_id, group_id FROM role_rule WHERE guild_id = ? ORDER BY id",
     )
     .bind(to_db(guild_id))
     .fetch_all(db)
@@ -150,12 +151,13 @@ pub async fn list_rules(db: &SqlitePool, guild_id: serenity::GuildId) -> Result<
 
     Ok(rows
         .into_iter()
-        .filter_map(|(id, kind, value, role_id)| {
+        .filter_map(|(id, kind, value, role_id, group_id)| {
             Some(Rule {
                 id,
                 kind: RuleKind::parse(&kind)?,
                 value,
                 role_id: role_from_db(role_id)?,
+                group_id,
             })
         })
         .collect())
@@ -167,14 +169,18 @@ pub async fn add_rule(
     kind: RuleKind,
     value: &str,
     role_id: serenity::RoleId,
+    group_id: Option<i64>,
 ) -> Result<(), Error> {
-    sqlx::query("INSERT INTO role_rule (guild_id, kind, value, role_id) VALUES (?, ?, ?, ?)")
-        .bind(to_db(guild_id))
-        .bind(kind.as_str())
-        .bind(value)
-        .bind(to_db(role_id))
-        .execute(db)
-        .await?;
+    sqlx::query(
+        "INSERT INTO role_rule (guild_id, kind, value, role_id, group_id) VALUES (?, ?, ?, ?, ?)",
+    )
+    .bind(to_db(guild_id))
+    .bind(kind.as_str())
+    .bind(value)
+    .bind(to_db(role_id))
+    .bind(group_id)
+    .execute(db)
+    .await?;
     Ok(())
 }
 
@@ -189,6 +195,73 @@ pub async fn delete_rule(
         .bind(to_db(guild_id))
         .execute(db)
         .await?;
+    Ok(())
+}
+
+/// Rules grouped under a separator role, like `━━ Ranks ━━` above the rank roles
+pub struct RuleGroup {
+    pub id: i64,
+    pub name: String,
+    pub separator_role_id: serenity::RoleId,
+}
+
+pub async fn list_groups(
+    db: &SqlitePool,
+    guild_id: serenity::GuildId,
+) -> Result<Vec<RuleGroup>, Error> {
+    let rows: Vec<(i64, String, i64)> = sqlx::query_as(
+        "SELECT id, name, separator_role_id FROM rule_group WHERE guild_id = ? ORDER BY id",
+    )
+    .bind(to_db(guild_id))
+    .fetch_all(db)
+    .await?;
+
+    Ok(rows
+        .into_iter()
+        .filter_map(|(id, name, separator_role_id)| {
+            Some(RuleGroup {
+                id,
+                name,
+                separator_role_id: role_from_db(separator_role_id)?,
+            })
+        })
+        .collect())
+}
+
+pub async fn add_group(
+    db: &SqlitePool,
+    guild_id: serenity::GuildId,
+    name: &str,
+    separator_role_id: serenity::RoleId,
+) -> Result<(), Error> {
+    sqlx::query("INSERT INTO rule_group (guild_id, name, separator_role_id) VALUES (?, ?, ?)")
+        .bind(to_db(guild_id))
+        .bind(name)
+        .bind(to_db(separator_role_id))
+        .execute(db)
+        .await?;
+    Ok(())
+}
+
+/// Deletes a group, its rules stay without a group
+pub async fn delete_group(
+    db: &SqlitePool,
+    guild_id: serenity::GuildId,
+    group_id: i64,
+) -> Result<(), Error> {
+    let mut transaction = db.begin().await?;
+    // Scoped by guild so a panel user can only change groups of a guild they manage
+    sqlx::query("UPDATE role_rule SET group_id = NULL WHERE group_id = ? AND guild_id = ?")
+        .bind(group_id)
+        .bind(to_db(guild_id))
+        .execute(&mut *transaction)
+        .await?;
+    sqlx::query("DELETE FROM rule_group WHERE id = ? AND guild_id = ?")
+        .bind(group_id)
+        .bind(to_db(guild_id))
+        .execute(&mut *transaction)
+        .await?;
+    transaction.commit().await?;
     Ok(())
 }
 

@@ -60,6 +60,7 @@ bit for bit.
 | Table              | Content                                                                 |
 |--------------------|-------------------------------------------------------------------------|
 | `guild_config`     | Per server: verification roles, linked Hypixel guild, nickname settings |
-| `role_rule`        | Role rules                                                              |
+| `role_rule`        | Role rules, optionally in a group                                       |
+| `rule_group`       | Rule groups and their separator role                                    |
 | `nickname_segment` | Nickname fields: order, prefix, suffix, importance                      |
 | `verified_member`  | Which Minecraft account each member verified with, and when             |

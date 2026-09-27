@@ -60,10 +60,22 @@ A rule gives a role when a condition matches, and removes it when it stops match
 | Condition                   | Matches when                                                     |
 |-----------------------------|------------------------------------------------------------------|
 | Hypixel rank is …           | The player has exactly that rank (VIP to MVP++, YOUTUBER, STAFF) |
+| Hypixel rank is No rank     | The player has no paid or special rank                           |
 | Member of the Hypixel guild | The player is in the linked guild                                |
 | Guild rank is …             | The player has that rank in the linked guild                     |
 
 Guild ranks are picked from the linked guild's current ranks.
+
+#### Groups and separator roles
+
+Separator roles are the dividers of a member's role list, like `━━ Ranks ━━` placed above the
+rank roles. A group ties a separator to rules: members get the separator while at least one rule
+of the group matches, and lose it when none does. A member without any rank role then has no
+empty `━━ Ranks ━━` header.
+
+Create a group with its name and separator role, then pick the group when adding a rule. Rules
+can also stay without a group. Deleting a group keeps its rules, without a group. Removing a
+member's verification also removes their separators.
 
 ### Nickname
 

@@ -60,6 +60,11 @@ pub fn router(state: AppState) -> Router {
             "/guilds/{guild_id}/rules/{rule_id}/delete",
             post(pages::delete_rule),
         )
+        .route("/guilds/{guild_id}/groups", post(pages::add_group))
+        .route(
+            "/guilds/{guild_id}/groups/{group_id}/delete",
+            post(pages::delete_group),
+        )
         .route(
             "/guilds/{guild_id}/nickname",
             get(pages::nickname).post(pages::save_nickname),

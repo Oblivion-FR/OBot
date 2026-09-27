@@ -421,6 +421,10 @@ select:disabled { opacity: 0.6; }
 }
 .rule-list li:first-child { border-top: 0; padding-top: 0; }
 .rule-arrow { color: var(--muted); }
+.rule-group + .rule-group { margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--border); }
+.rule-group-header { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 8px; }
+.rule-group-header form { margin-left: auto; }
+.rule-group-empty { margin: 0; }
 .rule-list .role-chip { justify-self: start; }
 
 /* Only show the value field matching the chosen condition */
