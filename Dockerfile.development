@@ -1,5 +1,3 @@
-# syntax=docker/dockerfile:1
-
 # Development image: runs `cargo run` (debug build) under a file watcher that rebuilds and
 # restarts the bot on every change. The sources are copied in, so it runs anywhere; with
 # `docker compose watch` (see compose.development.yml), local edits are synced into it.
