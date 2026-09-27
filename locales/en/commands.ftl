@@ -28,6 +28,8 @@ verify-done = You are verified as `{ $name }`!
 verify-roles-added = Roles added: { $roles }
 verify-roles-removed = Roles removed: { $roles }
 verify-nickname-set = Nickname set to `{ $nickname }`
+# Small print under every verification reply and the verify button message
+verify-data-notice = -# To give you your roles, OBot saves your Discord ID and the Minecraft account you verify, and reads its Hypixel profile. The server's admins can see them. [Privacy policy](<{ $url }>)
 verify-nickname-skipped = ⚠️ Nickname not changed to `{ $nickname }`: { $reason }.
 
 whois-missing = Give a member, a Minecraft username, or both.

@@ -161,9 +161,37 @@ pub async fn verify(ctx: Context<'_>, username: String) -> Result<(), Error> {
     Ok(())
 }
 
+/// The privacy policy in this language, on the repository
+pub fn privacy_url(lang: Lang) -> String {
+    format!(
+        "{}/blob/main/{}",
+        version::REPOSITORY,
+        lang.t("footer-privacy-path")
+    )
+}
+
+/// What verifying stores and why, in small print, with a link to the privacy policy
+pub fn data_notice(lang: Lang) -> String {
+    tr!(lang, "verify-data-notice", url = privacy_url(lang))
+}
+
 /// A member verifying themselves, from `/verify` or the verify button: checks the proof, applies
-/// it and tells the log channel. Returns the reply to the member, in their language.
+/// it and tells the log channel. Returns the reply to the member, in their language, followed by
+/// what verifying stores.
 pub async fn verify_member(
+    discord: &serenity::Http,
+    cache: &serenity::Cache,
+    data: &Data,
+    guild_id: serenity::GuildId,
+    member: &serenity::Member,
+    username: &str,
+    lang: Lang,
+) -> Result<String, Error> {
+    let reply = verify_reply(discord, cache, data, guild_id, member, username, lang).await?;
+    Ok(format!("{reply}\n{}", data_notice(lang)))
+}
+
+async fn verify_reply(
     discord: &serenity::Http,
     cache: &serenity::Cache,
     data: &Data,

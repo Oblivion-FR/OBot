@@ -4,7 +4,7 @@
 
 use poise::serenity_prelude as serenity;
 
-use crate::commands::verify_member;
+use crate::commands::{data_notice, verify_member};
 use crate::i18n::Lang;
 use crate::{Data, Error};
 
@@ -18,7 +18,11 @@ pub fn message(lang: Lang) -> serenity::CreateMessage {
         .label(lang.t("verify-button"))
         .style(serenity::ButtonStyle::Success);
     serenity::CreateMessage::new()
-        .content(lang.t("verify-message"))
+        .content(format!(
+            "{}\n{}",
+            lang.t("verify-message"),
+            data_notice(lang)
+        ))
         .components(vec![serenity::CreateActionRow::Buttons(vec![button])])
 }
 

@@ -28,6 +28,7 @@ verify-done = Tu es vérifié en tant que `{ $name }` !
 verify-roles-added = Rôles ajoutés : { $roles }
 verify-roles-removed = Rôles retirés : { $roles }
 verify-nickname-set = Pseudo changé en `{ $nickname }`
+verify-data-notice = -# Pour te donner tes rôles, OBot enregistre ton identifiant Discord et le compte Minecraft que tu vérifies, et lit son profil Hypixel. Les admins du serveur peuvent les voir. [Politique de confidentialité](<{ $url }>)
 verify-nickname-skipped = ⚠️ Pseudo non changé en `{ $nickname }` : { $reason }.
 
 whois-missing = Donne un membre, un pseudo Minecraft, ou les deux.
