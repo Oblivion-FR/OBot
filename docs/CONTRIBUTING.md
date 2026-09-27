@@ -84,10 +84,13 @@ new clippy reports.
 
 1. Raise `version` in `Cargo.toml` and run `cargo check` so `Cargo.lock` follows.
 2. Commit it as `chore(release): vX.Y.Z`.
-3. Tag that commit `vX.Y.Z` with an annotated tag summarizing the release, and push the tag.
+3. Tag that commit `vX.Y.Z` with an annotated tag: its first line is the release title, the
+   rest its patch notes. Push the tag.
 
 CI then publishes `production-vX.Y.Z` and `development-vX.Y.Z`, which Portainer can pin with
-`OBOT_TAG`. The bot's status and `/version` show the new version.
+`OBOT_TAG`, builds standalone binaries for Linux, Windows and macOS, and creates the GitHub
+release with the patch notes, the image tags and the binaries. A tag with a `-`, like
+`v0.3.0-rc.1`, becomes a pre-release. The bot's status and `/version` show the new version.
 
 ## Code conventions
 

@@ -39,6 +39,14 @@ be slow, and can exceed Portainer's deployment time limit. The images follow the
 visibility; if the package is private, add `ghcr.io` in Portainer under **Registries** with a
 GitHub token that can read packages.
 
+## Without Docker
+
+Each [GitHub release](https://github.com/Oblivion-FR/OBot/releases) also has standalone
+executables: Linux (x86-64 and ARM64, glibc 2.35 or newer), Windows (x86-64) and macOS (Apple
+Silicon). Everything the bot needs is built in: unpack the archive, fill in the `.env.example`
+it contains as `.env` next to the executable, and run it. See [setup.md](setup.md) for the
+settings.
+
 ## Version
 
 The bot's Discord status shows its version and the commit it was built from, like

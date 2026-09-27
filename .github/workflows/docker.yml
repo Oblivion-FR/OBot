@@ -1,6 +1,7 @@
 # Checks the code, then builds the production and development images for x86-64 and ARM64 and
 # publishes them to the GitHub container registry, where the Portainer stacks pull them from.
-name: Docker images
+# Release tags also get standalone binaries and a GitHub release.
+name: CI
 
 on:
   push:
@@ -150,3 +151,109 @@ jobs:
             $(jq -cr '.tags | map("-t " + .) | join(" ")' <<< "$DOCKER_METADATA_OUTPUT_JSON") \
             $(printf "$IMAGE@sha256:%s " *)
           docker buildx imagetools inspect "$IMAGE:${{ matrix.environment }}"
+
+  # Standalone executables for each release: templates, static files and migrations are all
+  # built in, so one file is enough to run the bot
+  binaries:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: checks
+    permissions:
+      contents: read
+    strategy:
+      matrix:
+        target:
+          # Ubuntu 22.04 links against an older glibc, so the Linux builds run on more systems
+          - { name: linux-x86_64, runner: ubuntu-22.04, binary: obot }
+          - { name: linux-arm64, runner: ubuntu-22.04-arm, binary: obot }
+          - { name: windows-x86_64, runner: windows-latest, binary: obot.exe }
+          - { name: macos-arm64, runner: macos-latest, binary: obot }
+    runs-on: ${{ matrix.target.runner }}
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v7
+      - run: rustup toolchain install
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: release-${{ matrix.target.name }}
+      - run: cargo build --release --locked
+      - name: Package
+        env:
+          ARCHIVE: obot-${{ github.ref_name }}-${{ matrix.target.name }}
+          BINARY: ${{ matrix.target.binary }}
+        run: |
+          mkdir -p "dist/$ARCHIVE"
+          cp "target/release/$BINARY" LICENSE .env.example "dist/$ARCHIVE/"
+          cd dist
+          if [[ "$BINARY" == *.exe ]]; then
+            7z a -tzip "$ARCHIVE.zip" "$ARCHIVE" > /dev/null
+          else
+            tar -czf "$ARCHIVE.tar.gz" "$ARCHIVE"
+          fi
+          rm -r "$ARCHIVE"
+      - uses: actions/upload-artifact@v7
+        with:
+          name: release-${{ matrix.target.name }}
+          path: dist/*
+          if-no-files-found: error
+          retention-days: 1
+
+  # Publishes the GitHub release once its images and binaries are all built
+  release:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: [merge, binaries]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v7
+      # The checkout only has the commit: the annotated tag holding the patch notes is fetched too
+      - run: git fetch --force origin "refs/tags/$GITHUB_REF_NAME:refs/tags/$GITHUB_REF_NAME"
+
+      - uses: actions/download-artifact@v8
+        with:
+          path: dist
+          pattern: release-*
+          merge-multiple: true
+
+      - name: Release notes
+        run: |
+          image="ghcr.io/${GITHUB_REPOSITORY,,}"
+          {
+            # Escaped, or Markdown would hide texts like `<minecraft name>` as HTML tags
+            git tag --list --format='%(contents:body)' "$GITHUB_REF_NAME" | sed 's/</\&lt;/g'
+            echo
+            echo "## Docker images"
+            echo
+            echo "For x86-64 and ARM64:"
+            echo
+            echo "- \`$image:production-$GITHUB_REF_NAME\`"
+            echo "- \`$image:development-$GITHUB_REF_NAME\`"
+            echo
+            echo "## Binaries"
+            echo
+            echo "Single executables for Linux (x86-64, ARM64, glibc 2.35 or newer), Windows"
+            echo "(x86-64) and macOS (Apple Silicon), with \`.env.example\` to configure them."
+            echo "\`SHA256SUMS\` lists their checksums."
+          } > notes.md
+          cd dist && sha256sum -- * > SHA256SUMS
+
+      - name: Publish
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          title=$(git tag --list --format='%(contents:subject)' "$GITHUB_REF_NAME")
+          # Tags like `v0.3.0-rc.1` are pre-releases
+          prerelease=()
+          if [[ "$GITHUB_REF_NAME" == *-* ]]; then
+            prerelease=(--prerelease)
+          fi
+          # A re-run updates the existing release instead of failing
+          if gh release view "$GITHUB_REF_NAME" > /dev/null 2>&1; then
+            gh release edit "$GITHUB_REF_NAME" --title "$title" --notes-file notes.md
+            gh release upload "$GITHUB_REF_NAME" dist/* --clobber
+          else
+            gh release create "$GITHUB_REF_NAME" dist/* --verify-tag \
+              --title "$title" --notes-file notes.md "${prerelease[@]}"
+          fi
