@@ -1,0 +1,45 @@
+# Set up once per clone with `pre-commit install`, see the README
+default_install_hook_types: [pre-commit, commit-msg]
+default_stages: [pre-commit]
+
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v6.0.0
+    hooks:
+      - id: trailing-whitespace
+      - id: end-of-file-fixer
+      - id: check-toml
+      - id: check-yaml
+      - id: check-merge-conflict
+      - id: check-added-large-files
+
+  # Commit messages follow Conventional Commits: `type(scope)!: description`
+  - repo: https://github.com/compilerla/conventional-pre-commit
+    rev: v4.4.0
+    hooks:
+      - id: conventional-pre-commit
+        stages: [commit-msg]
+
+  - repo: local
+    hooks:
+      - id: cargo-fmt
+        name: cargo fmt
+        entry: cargo fmt --all -- --check
+        language: system
+        files: \.rs$
+        pass_filenames: false
+
+      # Templates, migrations and static files are compiled into the binary, so they count too
+      - id: cargo-clippy
+        name: cargo clippy
+        entry: cargo clippy --all-targets --locked -- -D warnings
+        language: system
+        files: \.(rs|html|sql|css|js)$|^Cargo\.(toml|lock)$
+        pass_filenames: false
+
+      - id: cargo-test
+        name: cargo test
+        entry: cargo test --locked
+        language: system
+        files: \.(rs|html|sql|css|js)$|^Cargo\.(toml|lock)$
+        pass_filenames: false
