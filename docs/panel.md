@@ -15,7 +15,7 @@ The panel is in English and French. It follows your Discord language at login, o
 the **EN / FR** buttons in the top bar (or on the login page) switch it and remember the choice
 on that browser. Slash command replies follow the language of each member's Discord client.
 What OBot posts in the server, like the log channel, uses the server language picked in
-**Messages**.
+**General settings**.
 
 ## Data requests
 
@@ -63,10 +63,12 @@ Minecraft username to see who verified with it, along with when and by whom. Onl
 
 A summary of the server's setup, with links to each section.
 
-### Messages
+### General settings
 
-What OBot posts in the server, and in which language.
+Settings for the whole server: its Hypixel guild, and what OBot posts in it.
 
+- **Hypixel guild**: the guild used by guild rules, guild rank tags and the guild columns. Type
+  its name; the panel stores its ID, so a rename doesn't break the link.
 - **Server language**: the language of those posts. Replies to commands still follow each
   member's own Discord language.
 - **Log channel**: OBot posts there each verification (by the member or by an admin), each
@@ -82,8 +84,6 @@ What OBot posts in the server, and in which language.
 
 - **Verification roles**: the role given by `/verify`, and optionally a role it removes. With no
   verified role, `/verify` is disabled.
-- **Hypixel guild**: the guild used by guild rules, guild rank tags and the guild columns. Type
-  its name; the panel stores its ID, so a rename doesn't break the link.
 - **Members**: every member of the server with their verification status.
   - Search by Discord or Minecraft name.
   - Click a column header to sort: ascending, then descending, then unsorted.

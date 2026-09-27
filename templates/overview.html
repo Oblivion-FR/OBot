@@ -22,7 +22,7 @@
     <span class="stat-link">{{ lang.t("overview-configure") }}</span>
   </a>
 
-  <a class="card stat-card" href="/guilds/{{ guild.id }}/verification">
+  <a class="card stat-card" href="/guilds/{{ guild.id }}/settings">
     <div class="stat-top">
       <span class="icon-bubble">{% call icons::guild() %}{% endcall %}</span>
       {% if hypixel_guild.is_some() %}<span class="badge ok">{{ lang.t("badge-linked") }}</span>{% else %}<span class="badge off">{{ lang.t("badge-not-linked") }}</span>{% endif %}

@@ -87,7 +87,7 @@ overview-how-roles-nickname = OBot checks the link, then updates their roles and
 
 ## Verification page
 
-verification-intro = What /verify gives and removes, and which Hypixel guild counts for guild rules.
+verification-intro = What /verify gives and removes, and who is verified.
 verification-roles = Verification roles
 verification-roles-hint = Greyed out roles are above the bot's or your highest role.
 verified-role = Verified role (given)
@@ -205,7 +205,7 @@ drag-rule = Drag to another group
 rules-drag-hint = Drag a rule onto a group to move it.
 no-group-empty = Drop a rule here to take it out of its group.
 add-rule = Add a rule
-add-rule-no-guild = Link a Hypixel guild in Verification to use guild conditions.
+add-rule-no-guild = Link a Hypixel guild in General settings to use guild conditions.
 add-rule-guild = Guild conditions use { $guild }.
 rule-when = When
 rule-kind-hypixel-rank = Hypixel rank is
@@ -252,7 +252,7 @@ texts-per-rank = Texts per rank
 texts-per-rank-hint = Change the prefix, label or suffix of a single rank, like ★MVP++★. Untouched parts follow the field's defaults above; an emptied part shows nothing. Ranks without a label are skipped.
 texts-hypixel-ranks = Hypixel ranks
 texts-guild-ranks = Guild ranks
-texts-link-guild = Link a Hypixel guild in Verification to customize its ranks.
+texts-link-guild = Link a Hypixel guild in General settings to customize its ranks.
 texts-guild-gone = The linked Hypixel guild doesn't exist anymore.
 texts-guild-unavailable = Couldn't load the guild's ranks from Hypixel, try again later.
 rank = Rank
@@ -270,17 +270,17 @@ preview-longest = Longest
 preview-unchanged = (unchanged)
 save-nickname = Save nickname
 
-## Messages page
+## General settings page
 
-nav-messages = Messages
-messages-intro = What OBot posts in your server.
-messages-settings = Language and log
-messages-settings-hint = What OBot posts in the server is written in the server language. Replies to commands follow each member's own Discord language.
+nav-settings = General settings
+settings-intro = Settings for the whole server: its Hypixel guild, and what OBot posts in it.
+settings-messages = Language and log
+settings-messages-hint = What OBot posts in the server is written in the server language. Replies to commands follow each member's own Discord language.
 server-language = Server language
 log-channel = Log channel
 log-channel-none = No log channel
 log-channel-hint = Verifications, refreshes that changed something, and panel actions are posted there. Greyed out channels are ones the bot can't post in.
-save-messages = Save
+save-settings = Save
 error-channel-not-sendable = The bot can't send messages in this channel.
 verify-button-card = Verify button
 verify-button-hint = Posts a message with a Verify button, in the server language. Members click it and enter their Minecraft username instead of typing /verify. Older messages keep working; delete them in Discord.

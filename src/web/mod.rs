@@ -89,8 +89,8 @@ pub fn router(state: AppState) -> Router {
             get(pages::nickname).post(pages::save_nickname),
         )
         .route(
-            "/guilds/{guild_id}/messages",
-            get(pages::messages).post(pages::save_messages),
+            "/guilds/{guild_id}/settings",
+            get(pages::settings).post(pages::save_settings),
         )
         .route(
             "/guilds/{guild_id}/verify-message",

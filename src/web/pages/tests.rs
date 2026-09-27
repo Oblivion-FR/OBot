@@ -98,7 +98,6 @@ fn verification_page_renders_roles_and_error() {
         roles: vec![role(10, "Admin", false), role(11, "Verified", true)],
         verified_role_id: Some(serenity::RoleId::new(11)),
         unverified_role_id: None,
-        hypixel_guild: Some("My Guild".to_owned()),
         guild_id: serenity::GuildId::new(2),
         members: members::tests::sample_table(),
     }
@@ -107,7 +106,10 @@ fn verification_page_renders_roles_and_error() {
 
     assert!(html.contains(r#"<option value="11" selected>@Verified</option>"#));
     assert!(html.contains(r#"<option value="10" disabled>@Admin</option>"#));
-    assert!(html.contains(r#"value="My Guild""#));
+    assert!(
+        !html.contains("/hypixel-guild"),
+        "the guild is linked in the settings"
+    );
     assert!(html.contains("You can only pick roles below your highest role."));
 
     assert!(html.contains("1 of 2 verified"));
@@ -149,7 +151,6 @@ fn verification_page_renders_in_french() {
         roles: vec![role(11, "Verified", true)],
         verified_role_id: Some(serenity::RoleId::new(11)),
         unverified_role_id: None,
-        hypixel_guild: None,
         guild_id: serenity::GuildId::new(2),
         members: members::tests::sample_table(),
     }
@@ -378,18 +379,18 @@ fn nickname_form_reorders_and_limits() {
 }
 
 #[test]
-fn messages_page_renders_language_and_channels() {
+fn settings_page_renders_guild_language_and_channels() {
     let channel = |id, name: &str, sendable| ChannelOption {
         id: serenity::ChannelId::new(id),
         name: name.to_owned(),
         sendable,
     };
-    let html = MessagesPage {
+    let html = SettingsPage {
         lang: Lang::En,
         shell: shell(),
         guild: guild(2, "Test", None),
-        section: "messages",
-        section_title: "nav-messages",
+        section: "settings",
+        section_title: "nav-settings",
         error: error_message("channel_not_sendable"),
         server_language: Lang::Fr,
         channels: vec![
@@ -398,6 +399,7 @@ fn messages_page_renders_language_and_channels() {
         ],
         log_channel_id: Some(serenity::ChannelId::new(30)),
         posted: true,
+        hypixel_guild: Some("My Guild".to_owned()),
     }
     .render()
     .expect("template renders");
@@ -406,9 +408,11 @@ fn messages_page_renders_language_and_channels() {
     assert!(html.contains(r#"<option value="30" selected>#logs</option>"#));
     assert!(html.contains(r#"<option value="31" disabled>#announcements</option>"#));
     assert!(html.contains("send messages in this channel."));
-    assert!(html.contains(r#"href="/guilds/2/messages" class="active""#));
+    assert!(html.contains(r#"href="/guilds/2/settings" class="active""#));
     assert!(html.contains("The verify message was posted."));
     assert!(html.contains(r#"action="/guilds/2/verify-message""#));
+    assert!(html.contains(r#"action="/guilds/2/hypixel-guild""#));
+    assert!(html.contains(r#"value="My Guild""#));
 }
 
 #[test]

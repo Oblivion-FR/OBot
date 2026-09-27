@@ -1,18 +1,32 @@
 {% extends "guild_shell.html" %}
 {% block page %}
 <div class="page-header">
-  <h1>{{ lang.t("nav-messages") }}</h1>
-  <p>{{ lang.t("messages-intro") }}</p>
+  <h1>{{ lang.t("nav-settings") }}</h1>
+  <p>{{ lang.t("settings-intro") }}</p>
 </div>
 
 {% if posted %}<div class="alert ok" role="status">{{ lang.t("notice-verify-message-posted") }}</div>{% endif %}
 
 <div class="stack">
-  <form class="card" method="post" action="/guilds/{{ guild.id }}/messages">
+  <form class="card" method="post" action="/guilds/{{ guild.id }}/hypixel-guild">
     <div class="card-header">
       <div>
-        <h2>{{ lang.t("messages-settings") }}</h2>
-        <p class="hint">{{ lang.t("messages-settings-hint") }}</p>
+        <h2>{{ lang.t("hypixel-guild") }}</h2>
+        <p class="hint">{{ lang.t("hypixel-guild-hint") }}</p>
+      </div>
+      {% if hypixel_guild.is_some() %}<span class="badge ok">{{ lang.t("badge-linked") }}</span>{% else %}<span class="badge off">{{ lang.t("badge-not-linked") }}</span>{% endif %}
+    </div>
+    <label class="field">{{ lang.t("guild-name") }}
+      <input name="name" value="{% if let Some(name) = hypixel_guild %}{{ name }}{% endif %}" placeholder="{{ lang.t("guild-not-linked") }}">
+    </label>
+    <div class="card-footer"><button class="btn" type="submit">{{ lang.t("save-guild") }}</button></div>
+  </form>
+
+  <form class="card" method="post" action="/guilds/{{ guild.id }}/settings">
+    <div class="card-header">
+      <div>
+        <h2>{{ lang.t("settings-messages") }}</h2>
+        <p class="hint">{{ lang.t("settings-messages-hint") }}</p>
       </div>
     </div>
     <div class="form-grid">
@@ -33,7 +47,7 @@
       </label>
     </div>
     <p class="hint">{{ lang.t("log-channel-hint") }}</p>
-    <div class="card-footer"><button class="btn" type="submit">{{ lang.t("save-messages") }}</button></div>
+    <div class="card-footer"><button class="btn" type="submit">{{ lang.t("save-settings") }}</button></div>
   </form>
 
   <form class="card" method="post" action="/guilds/{{ guild.id }}/verify-message">

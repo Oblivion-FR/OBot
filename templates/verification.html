@@ -34,20 +34,6 @@
     <div class="card-footer"><button class="btn" type="submit">{{ lang.t("save-roles") }}</button></div>
   </form>
 
-  <form class="card" method="post" action="/guilds/{{ guild.id }}/hypixel-guild">
-    <div class="card-header">
-      <div>
-        <h2>{{ lang.t("hypixel-guild") }}</h2>
-        <p class="hint">{{ lang.t("hypixel-guild-hint") }}</p>
-      </div>
-      {% if hypixel_guild.is_some() %}<span class="badge ok">{{ lang.t("badge-linked") }}</span>{% else %}<span class="badge off">{{ lang.t("badge-not-linked") }}</span>{% endif %}
-    </div>
-    <label class="field">{{ lang.t("guild-name") }}
-      <input name="name" value="{% if let Some(name) = hypixel_guild %}{{ name }}{% endif %}" placeholder="{{ lang.t("guild-not-linked") }}">
-    </label>
-    <div class="card-footer"><button class="btn" type="submit">{{ lang.t("save-guild") }}</button></div>
-  </form>
-
   <section class="card" id="members">
     <div class="card-header">
       <div>

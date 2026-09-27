@@ -180,7 +180,6 @@ struct VerificationPage {
     roles: Vec<RoleOption>,
     verified_role_id: Option<serenity::RoleId>,
     unverified_role_id: Option<serenity::RoleId>,
-    hypixel_guild: Option<String>,
     guild_id: serenity::GuildId,
     members: MembersTable,
 }
@@ -220,7 +219,6 @@ pub async fn verification(
         error: params.error.as_deref().and_then(error_message),
         verified_role_id: config.verified_role_id,
         unverified_role_id: config.unverified_role_id,
-        hypixel_guild: config.hypixel_guild.map(|link| link.name),
         guild_id,
         members,
     })
@@ -291,14 +289,14 @@ pub async fn save_hypixel_guild(
             None => {
                 return Ok(section_redirect(
                     guild_id,
-                    "/verification",
+                    "/settings",
                     Some("guild_not_found"),
                 ));
             }
         }
     };
     config::set_hypixel_guild(&state.db, guild_id, link).await?;
-    Ok(section_redirect(guild_id, "/verification", None))
+    Ok(section_redirect(guild_id, "/settings", None))
 }
 
 // Role rules
@@ -1059,11 +1057,11 @@ pub async fn preview_nickname(
     })
 }
 
-// Messages
+// General settings
 
 #[derive(Template)]
-#[template(path = "messages.html")]
-struct MessagesPage {
+#[template(path = "settings.html")]
+struct SettingsPage {
     lang: Lang,
     shell: Shell,
     guild: GuildSummary,
@@ -1071,6 +1069,7 @@ struct MessagesPage {
     /// Message id
     section_title: &'static str,
     error: Option<&'static str>,
+    hypixel_guild: Option<String>,
     server_language: Lang,
     channels: Vec<ChannelOption>,
     log_channel_id: Option<serenity::ChannelId>,
@@ -1079,48 +1078,49 @@ struct MessagesPage {
 }
 
 #[derive(Deserialize)]
-pub struct MessagesParams {
+pub struct SettingsParams {
     error: Option<String>,
     #[serde(default)]
     posted: bool,
 }
 
-pub async fn messages(
+pub async fn settings(
     State(state): State<Arc<AppState>>,
     LoggedIn(user): LoggedIn,
     PanelLang(lang): PanelLang,
     Path(guild_id): Path<NonZeroU64>,
-    Query(params): Query<MessagesParams>,
+    Query(params): Query<SettingsParams>,
 ) -> Result<Response, AppError> {
     let ctx = or_respond!(guild_context(&state, user, guild_id).await);
     let config = config::get_config(&state.db, ctx.access.guild_id).await?;
-    render(MessagesPage {
+    render(SettingsPage {
         lang,
         channels: state.channel_options(ctx.access.guild_id),
         shell: ctx.shell,
         guild: ctx.guild,
-        section: "messages",
-        section_title: "nav-messages",
+        section: "settings",
+        section_title: "nav-settings",
         error: params.error.as_deref().and_then(error_message),
         server_language: config.language,
         log_channel_id: config.log_channel_id,
+        hypixel_guild: config.hypixel_guild.map(|link| link.name),
         posted: params.posted,
     })
 }
 
 #[derive(Deserialize)]
-pub struct MessagesForm {
+pub struct SettingsForm {
     language: String,
     // A selected but disabled option is not submitted at all
     #[serde(default)]
     log_channel_id: String,
 }
 
-pub async fn save_messages(
+pub async fn save_settings(
     State(state): State<Arc<AppState>>,
     LoggedIn(user): LoggedIn,
     Path(guild_id): Path<NonZeroU64>,
-    Form(form): Form<MessagesForm>,
+    Form(form): Form<SettingsForm>,
 ) -> Result<Response, AppError> {
     let access = or_respond!(state.authorize(guild_id, &user).await);
     let guild_id = access.guild_id;
@@ -1134,7 +1134,7 @@ pub async fn save_messages(
     {
         return Ok(section_redirect(
             guild_id,
-            "/messages",
+            "/settings",
             Some("channel_not_sendable"),
         ));
     }
@@ -1153,7 +1153,7 @@ pub async fn save_messages(
         )
         .await;
     }
-    Ok(section_redirect(guild_id, "/messages", None))
+    Ok(section_redirect(guild_id, "/settings", None))
 }
 
 #[derive(Deserialize)]
@@ -1179,7 +1179,7 @@ pub async fn post_verify_message(
     else {
         return Ok(section_redirect(
             guild_id,
-            "/messages",
+            "/settings",
             Some("channel_not_sendable"),
         ));
     };
@@ -1187,9 +1187,9 @@ pub async fn post_verify_message(
     let message = crate::verify_button::message(config.language);
     if let Err(error) = channel_id.send_message(&state.discord, message).await {
         eprintln!("Could not post the verify message in {channel_id}: {error}");
-        return Ok(section_redirect(guild_id, "/messages", Some("post_failed")));
+        return Ok(section_redirect(guild_id, "/settings", Some("post_failed")));
     }
-    Ok(Redirect::to(&format!("/guilds/{guild_id}/messages?posted=true")).into_response())
+    Ok(Redirect::to(&format!("/guilds/{guild_id}/settings?posted=true")).into_response())
 }
 
 #[cfg(test)]

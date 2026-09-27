@@ -90,7 +90,7 @@ overview-how-roles-nickname = OBot vérifie le lien, puis met à jour ses rôles
 
 ## Page Vérification
 
-verification-intro = Ce que /verify donne et retire, et quelle guilde Hypixel compte pour les règles de guilde.
+verification-intro = Ce que /verify donne et retire, et qui est vérifié.
 verification-roles = Rôles de vérification
 verification-roles-hint = Les rôles grisés sont au-dessus du rôle le plus haut du bot ou du tien.
 verified-role = Rôle vérifié (donné)
@@ -212,7 +212,7 @@ drag-rule = Glisser vers un autre groupe
 rules-drag-hint = Glisse une règle sur un groupe pour l'y déplacer.
 no-group-empty = Dépose une règle ici pour la sortir de son groupe.
 add-rule = Ajouter une règle
-add-rule-no-guild = Lie une guilde Hypixel dans Vérification pour utiliser les conditions de guilde.
+add-rule-no-guild = Lie une guilde Hypixel dans Paramètres généraux pour utiliser les conditions de guilde.
 add-rule-guild = Les conditions de guilde utilisent { $guild }.
 rule-when = Quand
 rule-kind-hypixel-rank = Le rang Hypixel est
@@ -259,7 +259,7 @@ texts-per-rank = Textes par rang
 texts-per-rank-hint = Change le préfixe, le libellé ou le suffixe d'un seul rang, comme ★MVP++★. Les parties non modifiées suivent les valeurs par défaut du champ ci-dessus ; une partie vidée n'affiche rien. Les rangs sans libellé sont ignorés.
 texts-hypixel-ranks = Rangs Hypixel
 texts-guild-ranks = Rangs de guilde
-texts-link-guild = Lie une guilde Hypixel dans Vérification pour personnaliser ses rangs.
+texts-link-guild = Lie une guilde Hypixel dans Paramètres généraux pour personnaliser ses rangs.
 texts-guild-gone = La guilde Hypixel liée n'existe plus.
 texts-guild-unavailable = Impossible de charger les rangs de la guilde depuis Hypixel, réessaie plus tard.
 rank = Rang
@@ -277,17 +277,17 @@ preview-longest = Le plus long
 preview-unchanged = (inchangé)
 save-nickname = Enregistrer le pseudo
 
-## Page Messages
+## Page Paramètres généraux
 
-nav-messages = Messages
-messages-intro = Ce qu'OBot publie sur ton serveur.
-messages-settings = Langue et logs
-messages-settings-hint = Ce qu'OBot publie sur le serveur est écrit dans la langue du serveur. Les réponses aux commandes suivent la langue Discord de chaque membre.
+nav-settings = Paramètres généraux
+settings-intro = Les réglages de tout le serveur : sa guilde Hypixel, et ce qu'OBot y publie.
+settings-messages = Langue et logs
+settings-messages-hint = Ce qu'OBot publie sur le serveur est écrit dans la langue du serveur. Les réponses aux commandes suivent la langue Discord de chaque membre.
 server-language = Langue du serveur
 log-channel = Salon de logs
 log-channel-none = Aucun salon de logs
 log-channel-hint = Les vérifications, les mises à jour qui ont changé quelque chose et les actions du panel y sont publiées. Les salons grisés sont ceux où le bot ne peut pas écrire.
-save-messages = Enregistrer
+save-settings = Enregistrer
 error-channel-not-sendable = Le bot ne peut pas envoyer de messages dans ce salon.
 verify-button-card = Bouton de vérification
 verify-button-hint = Publie un message avec un bouton Vérifier, dans la langue du serveur. Les membres cliquent dessus et entrent leur pseudo Minecraft au lieu de taper /verify. Les anciens messages continuent de fonctionner ; supprime-les depuis Discord.
