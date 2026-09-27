@@ -253,3 +253,16 @@ preview-example = Example
 preview-longest = Longest
 preview-unchanged = (unchanged)
 save-nickname = Save nickname
+
+## Messages page
+
+nav-messages = Messages
+messages-intro = What OBot posts in your server.
+messages-settings = Language and log
+messages-settings-hint = What OBot posts in the server is written in the server language. Replies to commands follow each member's own Discord language.
+server-language = Server language
+log-channel = Log channel
+log-channel-none = No log channel
+log-channel-hint = Verifications, refreshes that changed something, and panel actions are posted there. Greyed out channels are ones the bot can't post in.
+save-messages = Save
+error-channel-not-sendable = The bot can't send messages in this channel.

@@ -14,6 +14,7 @@ use crate::Error;
 use crate::config::{self, GuildConfig, VerifiedMember};
 use crate::hypixel::{self, Player};
 use crate::i18n::{Lang, tr};
+use crate::server_log::{self, Event};
 use crate::verification::{self, Conflict, NicknameChange, Outcome, Record, RefreshFailure};
 
 const PAGE_SIZE: usize = 50;
@@ -690,14 +691,23 @@ pub async fn reverify(
     )
     .await?
     {
-        Ok((profile, outcome)) => describe(
-            &state,
-            lang,
-            access.guild_id,
-            tr!(lang, "notice-reverified", name = profile.name.as_str()),
-            &outcome,
-            "notice-up-to-date",
-        ),
+        Ok((profile, outcome)) => {
+            let event = Event::Reverified {
+                member: member.user.id,
+                name: &profile.name,
+                by: user.id,
+                outcome: &outcome,
+            };
+            server_log::post(&state.discord, &config, event).await;
+            describe(
+                &state,
+                lang,
+                access.guild_id,
+                tr!(lang, "notice-reverified", name = profile.name.as_str()),
+                &outcome,
+                "notice-up-to-date",
+            )
+        }
         Err(RefreshFailure::NotSetUp) => error(lang.t("pick-verified-role-first")),
         Err(RefreshFailure::AccountGone) => error(tr!(
             lang,
@@ -803,6 +813,13 @@ pub async fn admin_verify(
     .await?
     {
         Ok(outcome) => {
+            let event = Event::Verified {
+                member: member.user.id,
+                name: &profile.name,
+                by: Some(user.id),
+                outcome: &outcome,
+            };
+            server_log::post(&state.discord, &config, event).await;
             let notice = describe(
                 &state,
                 lang,
@@ -883,6 +900,12 @@ pub async fn unverify(
     )
     .await?;
     state.guild_members.remove(&access.guild_id);
+    let event = Event::Removed {
+        member: member.user.id,
+        by: user.id,
+        outcome: &outcome,
+    };
+    server_log::post(&state.discord, &config, event).await;
     let notice = describe(
         &state,
         lang,

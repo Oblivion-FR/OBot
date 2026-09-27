@@ -347,3 +347,34 @@ fn nickname_form_reorders_and_limits() {
     assert_eq!(format.segments[1].importance, 9);
     assert!(!format.segments[2].enabled, "unchecked fields are disabled");
 }
+
+#[test]
+fn messages_page_renders_language_and_channels() {
+    let channel = |id, name: &str, sendable| ChannelOption {
+        id: serenity::ChannelId::new(id),
+        name: name.to_owned(),
+        sendable,
+    };
+    let html = MessagesPage {
+        lang: Lang::En,
+        shell: shell(),
+        guild: guild(2, "Test", None),
+        section: "messages",
+        section_title: "nav-messages",
+        error: error_message("channel_not_sendable"),
+        server_language: Lang::Fr,
+        channels: vec![
+            channel(30, "logs", true),
+            channel(31, "announcements", false),
+        ],
+        log_channel_id: Some(serenity::ChannelId::new(30)),
+    }
+    .render()
+    .expect("template renders");
+
+    assert!(html.contains(r#"<option value="fr" selected>Français</option>"#));
+    assert!(html.contains(r#"<option value="30" selected>#logs</option>"#));
+    assert!(html.contains(r#"<option value="31" disabled>#announcements</option>"#));
+    assert!(html.contains("send messages in this channel."));
+    assert!(html.contains(r#"href="/guilds/2/messages" class="active""#));
+}

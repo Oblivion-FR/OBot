@@ -10,11 +10,12 @@ use std::sync::Arc;
 
 use super::auth::{LoggedIn, MaybeLoggedIn, PanelLang, User};
 use super::members::{self, MembersTable};
-use super::{Access, AppError, AppState, GuildSummary, RoleChip, RoleOption, Shell};
+use super::{Access, AppError, AppState, ChannelOption, GuildSummary, RoleChip, RoleOption, Shell};
 use crate::config::{self, HypixelGuildLink, RuleKind};
 use crate::hypixel;
 use crate::i18n::{Lang, tr};
 use crate::nickname::{self, Field, NicknameFormat};
+use crate::server_log;
 
 fn render(template: impl Template) -> Result<Response, AppError> {
     Ok(Html(template.render()?).into_response())
@@ -97,6 +98,7 @@ fn error_message(code: &str) -> Option<&'static str> {
         "role_not_allowed" => "error-role-not-allowed",
         "missing_group_name" => "error-missing-group-name",
         "unknown_group" => "error-unknown-group",
+        "channel_not_sendable" => "error-channel-not-sendable",
         _ => return None,
     })
 }
@@ -914,6 +916,93 @@ pub async fn preview_nickname(
         lang,
         previews: previews(&parse_nickname_form(&form)),
     })
+}
+
+// Messages
+
+#[derive(Template)]
+#[template(path = "messages.html")]
+struct MessagesPage {
+    lang: Lang,
+    shell: Shell,
+    guild: GuildSummary,
+    section: &'static str,
+    /// Message id
+    section_title: &'static str,
+    error: Option<&'static str>,
+    server_language: Lang,
+    channels: Vec<ChannelOption>,
+    log_channel_id: Option<serenity::ChannelId>,
+}
+
+pub async fn messages(
+    State(state): State<Arc<AppState>>,
+    LoggedIn(user): LoggedIn,
+    PanelLang(lang): PanelLang,
+    Path(guild_id): Path<NonZeroU64>,
+    Query(params): Query<PageParams>,
+) -> Result<Response, AppError> {
+    let ctx = or_respond!(guild_context(&state, user, guild_id).await);
+    let config = config::get_config(&state.db, ctx.access.guild_id).await?;
+    render(MessagesPage {
+        lang,
+        channels: state.channel_options(ctx.access.guild_id),
+        shell: ctx.shell,
+        guild: ctx.guild,
+        section: "messages",
+        section_title: "nav-messages",
+        error: params.error.as_deref().and_then(error_message),
+        server_language: config.language,
+        log_channel_id: config.log_channel_id,
+    })
+}
+
+#[derive(Deserialize)]
+pub struct MessagesForm {
+    language: String,
+    // A selected but disabled option is not submitted at all
+    #[serde(default)]
+    log_channel_id: String,
+}
+
+pub async fn save_messages(
+    State(state): State<Arc<AppState>>,
+    LoggedIn(user): LoggedIn,
+    Path(guild_id): Path<NonZeroU64>,
+    Form(form): Form<MessagesForm>,
+) -> Result<Response, AppError> {
+    let access = or_respond!(state.authorize(guild_id, &user).await);
+    let guild_id = access.guild_id;
+    let log_channel_id = form
+        .log_channel_id
+        .parse::<NonZeroU64>()
+        .ok()
+        .map(serenity::ChannelId::from);
+    if let Some(channel_id) = log_channel_id
+        && !state.is_sendable_channel(guild_id, channel_id)
+    {
+        return Ok(section_redirect(
+            guild_id,
+            "/messages",
+            Some("channel_not_sendable"),
+        ));
+    }
+    let language = Lang::from_tag(&form.language).unwrap_or_default();
+    let previous = config::get_config(&state.db, guild_id)
+        .await?
+        .log_channel_id;
+    config::set_messages(&state.db, guild_id, language, log_channel_id).await?;
+    // A first message shows the channel works, and who picked it
+    if log_channel_id.is_some() && log_channel_id != previous {
+        let config = config::get_config(&state.db, guild_id).await?;
+        server_log::post(
+            &state.discord,
+            &config,
+            server_log::Event::ChannelSet { admin: user.id },
+        )
+        .await;
+    }
+    Ok(section_redirect(guild_id, "/messages", None))
 }
 
 #[cfg(test)]

@@ -261,3 +261,16 @@ preview-example = Exemple
 preview-longest = Le plus long
 preview-unchanged = (inchangé)
 save-nickname = Enregistrer le pseudo
+
+## Page Messages
+
+nav-messages = Messages
+messages-intro = Ce qu'OBot publie sur ton serveur.
+messages-settings = Langue et logs
+messages-settings-hint = Ce qu'OBot publie sur le serveur est écrit dans la langue du serveur. Les réponses aux commandes suivent la langue Discord de chaque membre.
+server-language = Langue du serveur
+log-channel = Salon de logs
+log-channel-none = Aucun salon de logs
+log-channel-hint = Les vérifications, les mises à jour qui ont changé quelque chose et les actions du panel y sont publiées. Les salons grisés sont ceux où le bot ne peut pas écrire.
+save-messages = Enregistrer
+error-channel-not-sendable = Le bot ne peut pas envoyer de messages dans ce salon.

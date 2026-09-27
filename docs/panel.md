@@ -14,6 +14,8 @@ no limit). Otherwise the verified role could be used to give yourself a role you
 The panel is in English and French. It follows your Discord language at login, or your browser's;
 the **EN / FR** buttons in the top bar (or on the login page) switch it and remember the choice
 on that browser. Slash command replies follow the language of each member's Discord client.
+What OBot posts in the server, like the log channel, uses the server language picked in
+**Messages**.
 
 ## How verification works
 
@@ -46,6 +48,17 @@ Minecraft username to see who verified with it, along with when and by whom. Onl
 ### Overview
 
 A summary of the server's setup, with links to each section.
+
+### Messages
+
+What OBot posts in the server, and in which language.
+
+- **Server language**: the language of those posts. Replies to commands still follow each
+  member's own Discord language.
+- **Log channel**: OBot posts there each verification (by the member or by an admin), each
+  refused `/verify` except unknown usernames, re-verifications and removals from the panel, and
+  scheduled refreshes that changed something. Mentions in it don't ping anyone. Picking a
+  channel posts a first message, which shows the bot can write there.
 
 ### Verification
 

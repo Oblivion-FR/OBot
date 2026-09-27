@@ -43,3 +43,23 @@ rename-no-server = le bot n'a pas pu charger ce serveur
 rename-owner = les bots ne peuvent pas renommer le propriétaire du serveur
 rename-role-too-high = son rôle le plus haut est au niveau de celui du bot ou au-dessus
 rename-missing-permission = il manque peut-être au bot la permission Gérer les pseudos
+
+## Le salon de logs, dans la langue du serveur. Les mentions ne notifient personne.
+
+log-channel-set = 📋 { $admin } a choisi ce salon pour les logs d'OBot.
+log-verified = ✅ { $member } s'est vérifié en tant que `{ $name }`.
+log-verified-by = ✅ { $member } a été vérifié en tant que `{ $name }` par { $admin }.
+log-reverified-by = 🔄 { $member } a été revérifié en tant que `{ $name }` par { $admin }.
+log-refreshed = 🔄 { $member } a été mis à jour depuis le profil Hypixel de `{ $name }`.
+log-removed-by = 🗑️ { $admin } a retiré la vérification de { $member }.
+log-refused = ❌ { $member } n'a pas pu se vérifier en tant que `{ $name }` : { $reason }.
+log-reason-never-joined = ce compte n'a jamais rejoint Hypixel
+log-reason-no-discord = aucun Discord n'est lié sur Hypixel
+log-reason-linked-elsewhere = il est lié au Discord `{ $linked }`
+log-reason-already-verified = il est déjà vérifié en tant que `{ $current }`
+log-reason-account-taken = il est déjà lié à `{ $owner }`
+log-added = Ajouté : { $roles }
+log-removed = Retiré : { $roles }
+log-nickname-set = pseudo `{ $nickname }`
+log-nickname-reset = pseudo réinitialisé
+log-nickname-skipped = ⚠️ pseudo `{ $nickname }` non appliqué : { $reason }

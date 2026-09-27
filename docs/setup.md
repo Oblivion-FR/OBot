@@ -82,8 +82,9 @@ On startup the bot applies database migrations, logs in to Discord, and prints t
 
 ## Adding the bot to a server
 
-Log in to the panel and use the **+** button in the server bar. It invites the bot with the two
-permissions it needs: **Manage Roles** and **Manage Nicknames**.
+Log in to the panel and use the **+** button in the server bar. It invites the bot with the
+permissions it needs: **Manage Roles** and **Manage Nicknames** for verification, **View
+Channels** and **Send Messages** for the log channel.
 
 Then, in the server's settings, drag the bot's role **above** every role it should give or
 remove, and above the members it should rename. Discord doesn't let bots touch roles or members

@@ -1,0 +1,37 @@
+{% extends "guild_shell.html" %}
+{% block page %}
+<div class="page-header">
+  <h1>{{ lang.t("nav-messages") }}</h1>
+  <p>{{ lang.t("messages-intro") }}</p>
+</div>
+
+<div class="stack">
+  <form class="card" method="post" action="/guilds/{{ guild.id }}/messages">
+    <div class="card-header">
+      <div>
+        <h2>{{ lang.t("messages-settings") }}</h2>
+        <p class="hint">{{ lang.t("messages-settings-hint") }}</p>
+      </div>
+    </div>
+    <div class="form-grid">
+      <label class="field">{{ lang.t("server-language") }}
+        <select name="language">
+          {% for option in crate::i18n::Lang::ALL %}
+          <option value="{{ option.code() }}"{% if option == server_language %} selected{% endif %}>{{ option.name() }}</option>
+          {% endfor %}
+        </select>
+      </label>
+      <label class="field">{{ lang.t("log-channel") }}
+        <select name="log_channel_id">
+          <option value="">{{ lang.t("log-channel-none") }}</option>
+          {% for channel in channels %}
+          <option value="{{ channel.id }}"{% if log_channel_id.as_ref() == Some(channel.id) %} selected{% endif %}{% if !channel.sendable %} disabled{% endif %}>#{{ channel.name }}</option>
+          {% endfor %}
+        </select>
+      </label>
+    </div>
+    <p class="hint">{{ lang.t("log-channel-hint") }}</p>
+    <div class="card-footer"><button class="btn" type="submit">{{ lang.t("save-messages") }}</button></div>
+  </form>
+</div>
+{% endblock %}

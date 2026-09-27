@@ -71,6 +71,10 @@ pub fn router(state: AppState) -> Router {
             get(pages::nickname).post(pages::save_nickname),
         )
         .route(
+            "/guilds/{guild_id}/messages",
+            get(pages::messages).post(pages::save_messages),
+        )
+        .route(
             "/guilds/{guild_id}/members/{user_id}/reverify",
             post(members::reverify),
         )
@@ -191,6 +195,13 @@ struct RoleOption {
     assignable: bool,
 }
 
+struct ChannelOption {
+    id: serenity::ChannelId,
+    name: String,
+    /// The bot can see it and send messages in it
+    sendable: bool,
+}
+
 struct RoleChip {
     name: String,
     /// CSS color, the role's own or a neutral one for uncolored roles
@@ -278,9 +289,11 @@ impl AppState {
     }
 
     fn invite_url(&self) -> String {
-        // Manage Roles and Manage Nicknames, all `/verify` needs
-        let permissions =
-            serenity::Permissions::MANAGE_ROLES | serenity::Permissions::MANAGE_NICKNAMES;
+        // Roles and nicknames for verification, the rest to post in the log channel
+        let permissions = serenity::Permissions::MANAGE_ROLES
+            | serenity::Permissions::MANAGE_NICKNAMES
+            | serenity::Permissions::VIEW_CHANNEL
+            | serenity::Permissions::SEND_MESSAGES;
         format!(
             "https://discord.com/oauth2/authorize?client_id={}&scope=bot%20applications.commands&permissions={}",
             self.oauth.client_id,
@@ -306,6 +319,54 @@ impl AppState {
         guild.roles.get(&role_id).is_some_and(|role| {
             role.id.get() != access.guild_id.get() && !role.managed && access.can_grant(role)
         })
+    }
+
+    /// Text channels in Discord's order: channels without a category first, then by category
+    fn channel_options(&self, guild_id: serenity::GuildId) -> Vec<ChannelOption> {
+        let Some(guild) = self.cache.guild(guild_id) else {
+            return Vec::new();
+        };
+        let bot_id = self.cache.current_user().id;
+        let bot = guild.members.get(&bot_id);
+        let mut channels: Vec<&serenity::GuildChannel> = guild
+            .channels
+            .values()
+            .filter(|channel| {
+                matches!(
+                    channel.kind,
+                    serenity::ChannelType::Text | serenity::ChannelType::News
+                )
+            })
+            .collect();
+        let category_position = |channel: &serenity::GuildChannel| {
+            channel
+                .parent_id
+                .and_then(|parent| guild.channels.get(&parent))
+                .map_or(0, |category| u32::from(category.position) + 1)
+        };
+        channels.sort_by_key(|channel| (category_position(channel), channel.position));
+        channels
+            .into_iter()
+            .map(|channel| ChannelOption {
+                id: channel.id,
+                name: channel.name.clone(),
+                // Without the bot's member in cache, let Discord decide
+                sendable: bot.is_none_or(|bot| {
+                    let permissions = guild.user_permissions_in(channel, bot);
+                    permissions.view_channel() && permissions.send_messages()
+                }),
+            })
+            .collect()
+    }
+
+    fn is_sendable_channel(
+        &self,
+        guild_id: serenity::GuildId,
+        channel_id: serenity::ChannelId,
+    ) -> bool {
+        self.channel_options(guild_id)
+            .iter()
+            .any(|channel| channel.id == channel_id && channel.sendable)
     }
 
     /// Roles that can appear in the config, highest first

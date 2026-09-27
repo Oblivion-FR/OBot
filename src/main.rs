@@ -6,6 +6,7 @@ mod hypixel;
 mod i18n;
 mod nickname;
 mod resync;
+mod server_log;
 mod verification;
 mod version;
 mod web;

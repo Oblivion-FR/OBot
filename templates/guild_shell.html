@@ -13,6 +13,7 @@
   <nav class="nav" aria-label="{{ lang.t("nav-sections") }}">
     <span class="nav-label">{{ lang.t("nav-general") }}</span>
     <a href="/guilds/{{ guild.id }}"{% if section == "overview" %} class="active" aria-current="page"{% endif %}>{% call icons::overview() %}{% endcall %} {{ lang.t("nav-overview") }}</a>
+    <a href="/guilds/{{ guild.id }}/messages"{% if section == "messages" %} class="active" aria-current="page"{% endif %}>{% call icons::messages() %}{% endcall %} {{ lang.t("nav-messages") }}</a>
     <span class="nav-label">{{ lang.t("nav-verification-group") }}</span>
     <a href="/guilds/{{ guild.id }}/verification"{% if section == "verification" %} class="active" aria-current="page"{% endif %}>{% call icons::verification() %}{% endcall %} {{ lang.t("nav-verification") }}</a>
     <a href="/guilds/{{ guild.id }}/rules"{% if section == "rules" %} class="active" aria-current="page"{% endif %}>{% call icons::rules() %}{% endcall %} {{ lang.t("nav-rules") }}</a>

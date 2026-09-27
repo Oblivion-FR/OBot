@@ -9,6 +9,7 @@ use tokio::time::{Instant, MissedTickBehavior};
 use crate::Error;
 use crate::config;
 use crate::hypixel::Hypixel;
+use crate::server_log::{self, Event};
 use crate::verification::{self, Services};
 
 /// Hours between two refreshes when `RESYNC_INTERVAL_HOURS` isn't set
@@ -112,7 +113,15 @@ impl Resync {
             };
             match verification::refresh_member(&services, guild_id, &member, &config, &stored).await
             {
-                Ok(Ok((_, outcome))) if outcome.changed() => summary.updated += 1,
+                Ok(Ok((profile, outcome))) if outcome.changed() => {
+                    summary.updated += 1;
+                    let event = Event::Refreshed {
+                        member: user_id,
+                        name: &profile.name,
+                        outcome: &outcome,
+                    };
+                    server_log::post(&self.discord, &config, event).await;
+                }
                 Ok(Ok(_)) => {}
                 Ok(Err(_)) => summary.skipped += 1,
                 Err(error) => {

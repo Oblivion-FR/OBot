@@ -43,3 +43,23 @@ rename-no-server = the bot couldn't load this server
 rename-owner = bots can't rename the server owner
 rename-role-too-high = their highest role is at or above the bot's
 rename-missing-permission = the bot may be missing the Manage Nicknames permission
+
+## The log channel, in the server's language. Mentions don't ping anyone.
+
+log-channel-set = 📋 { $admin } picked this channel for OBot's log.
+log-verified = ✅ { $member } verified as `{ $name }`.
+log-verified-by = ✅ { $member } was verified as `{ $name }` by { $admin }.
+log-reverified-by = 🔄 { $member } was re-verified as `{ $name }` by { $admin }.
+log-refreshed = 🔄 { $member } was updated from `{ $name }`'s Hypixel profile.
+log-removed-by = 🗑️ { $admin } removed the verification of { $member }.
+log-refused = ❌ { $member } couldn't verify as `{ $name }`: { $reason }.
+log-reason-never-joined = this account never joined Hypixel
+log-reason-no-discord = no Discord is linked on Hypixel
+log-reason-linked-elsewhere = it's linked to the Discord `{ $linked }`
+log-reason-already-verified = they are already verified as `{ $current }`
+log-reason-account-taken = it's already linked to `{ $owner }`
+log-added = Added { $roles }
+log-removed = Removed { $roles }
+log-nickname-set = nickname `{ $nickname }`
+log-nickname-reset = nickname reset
+log-nickname-skipped = ⚠️ nickname `{ $nickname }` not set: { $reason }

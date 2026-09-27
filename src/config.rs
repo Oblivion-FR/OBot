@@ -4,6 +4,7 @@ use sqlx::sqlite::SqliteConnectOptions;
 use std::str::FromStr;
 
 use crate::Error;
+use crate::i18n::Lang;
 use crate::nickname::{self, CustomText, NicknameFormat, Segment, ValueText};
 
 pub async fn connect(url: &str) -> Result<SqlitePool, Error> {
@@ -47,6 +48,9 @@ pub struct GuildConfig {
     pub verified_role_id: Option<serenity::RoleId>,
     pub unverified_role_id: Option<serenity::RoleId>,
     pub hypixel_guild: Option<HypixelGuildLink>,
+    /// Language of what OBot posts in the server
+    pub language: Lang,
+    pub log_channel_id: Option<serenity::ChannelId>,
 }
 
 #[derive(sqlx::FromRow)]
@@ -55,6 +59,8 @@ struct GuildConfigRow {
     unverified_role_id: Option<i64>,
     hypixel_guild_id: Option<String>,
     hypixel_guild_name: Option<String>,
+    language: Option<String>,
+    log_channel_id: Option<i64>,
 }
 
 pub async fn get_config(
@@ -62,7 +68,8 @@ pub async fn get_config(
     guild_id: serenity::GuildId,
 ) -> Result<GuildConfig, Error> {
     let row: Option<GuildConfigRow> = sqlx::query_as(
-        "SELECT verified_role_id, unverified_role_id, hypixel_guild_id, hypixel_guild_name
+        "SELECT verified_role_id, unverified_role_id, hypixel_guild_id, hypixel_guild_name,
+                language, log_channel_id
          FROM guild_config WHERE guild_id = ?",
     )
     .bind(to_db(guild_id))
@@ -79,7 +86,36 @@ pub async fn get_config(
             .hypixel_guild_id
             .zip(row.hypixel_guild_name)
             .map(|(id, name)| HypixelGuildLink { id, name }),
+        language: row
+            .language
+            .as_deref()
+            .and_then(Lang::from_tag)
+            .unwrap_or_default(),
+        log_channel_id: row
+            .log_channel_id
+            .and_then(|id| std::num::NonZeroU64::new(id as u64))
+            .map(serenity::ChannelId::from),
     })
+}
+
+pub async fn set_messages(
+    db: &SqlitePool,
+    guild_id: serenity::GuildId,
+    language: Lang,
+    log_channel_id: Option<serenity::ChannelId>,
+) -> Result<(), Error> {
+    sqlx::query(
+        "INSERT INTO guild_config (guild_id, language, log_channel_id) VALUES (?, ?, ?)
+         ON CONFLICT (guild_id) DO UPDATE SET
+             language = excluded.language,
+             log_channel_id = excluded.log_channel_id",
+    )
+    .bind(to_db(guild_id))
+    .bind(language.code())
+    .bind(log_channel_id.map(to_db))
+    .execute(db)
+    .await?;
+    Ok(())
 }
 
 pub async fn set_roles(

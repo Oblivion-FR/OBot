@@ -4,9 +4,10 @@ use std::collections::BTreeSet;
 use crate::config;
 use crate::hypixel;
 use crate::i18n::{Lang, tr};
+use crate::server_log::{self, Event, Refusal};
 use crate::verification::{self, Conflict, NicknameChange, Record, Services};
 use crate::version;
-use crate::{Context, Error};
+use crate::{Context, Data, Error};
 
 /// Replies in the language of the member's Discord client, English when OBot doesn't speak it
 fn lang(ctx: Context<'_>) -> Lang {
@@ -138,102 +139,127 @@ fn mention_roles(roles: &BTreeSet<serenity::RoleId>) -> String {
 
 #[poise::command(slash_command, guild_only, ephemeral)]
 pub async fn verify(ctx: Context<'_>, username: String) -> Result<(), Error> {
-    let lang = lang(ctx);
     // The API calls can exceed Discord's 3 second reply window
     ctx.defer_ephemeral().await?;
-
-    let data = ctx.data();
     let guild_id = ctx.guild_id().ok_or("verify is guild only")?;
-    let author = ctx.author();
+    let member = match ctx.author_member().await {
+        Some(member) => member.into_owned(),
+        None => guild_id.member(ctx, ctx.author().id).await?,
+    };
+    let serenity_ctx = ctx.serenity_context();
+    let reply = verify_member(
+        &serenity_ctx.http,
+        &serenity_ctx.cache,
+        ctx.data(),
+        guild_id,
+        &member,
+        &username,
+        lang(ctx),
+    )
+    .await?;
+    ctx.say(reply).await?;
+    Ok(())
+}
 
+/// A member verifying themselves, from `/verify` or the verify button: checks the proof, applies
+/// it and tells the log channel. Returns the reply to the member, in their language.
+pub async fn verify_member(
+    discord: &serenity::Http,
+    cache: &serenity::Cache,
+    data: &Data,
+    guild_id: serenity::GuildId,
+    member: &serenity::Member,
+    username: &str,
+    lang: Lang,
+) -> Result<String, Error> {
+    let author = &member.user;
     let config = config::get_config(&data.db, guild_id).await?;
     let Some(verified_role_id) = config.verified_role_id else {
-        ctx.say(lang.t("verify-not-set-up")).await?;
-        return Ok(());
+        return Ok(lang.t("verify-not-set-up"));
     };
 
-    let Some(profile) = hypixel::fetch_mojang_profile(&data.http, &username).await? else {
-        ctx.say(tr!(
-            lang,
-            "verify-unknown-account",
-            name = username.as_str()
-        ))
-        .await?;
-        return Ok(());
+    let username = username.trim();
+    let Some(profile) = hypixel::fetch_mojang_profile(&data.http, username).await? else {
+        return Ok(tr!(lang, "verify-unknown-account", name = username));
+    };
+    let refused = |reason| {
+        server_log::post(
+            discord,
+            &config,
+            Event::Refused {
+                member: author.id,
+                name: &profile.name,
+                reason,
+            },
+        )
     };
 
     let Some(player) = verification::player_for_proof(&data.hypixel, &profile.id, author).await?
     else {
-        ctx.say(tr!(
+        refused(Refusal::NeverJoined).await;
+        return Ok(tr!(
             lang,
             "verify-never-joined",
             name = profile.name.as_str()
-        ))
-        .await?;
-        return Ok(());
+        ));
     };
     match &player.discord {
         None => {
-            ctx.say(tr!(
+            refused(Refusal::NoDiscordLinked).await;
+            return Ok(tr!(
                 lang,
                 "verify-no-discord-linked",
                 name = profile.name.as_str(),
                 discord = author.name.as_str()
-            ))
-            .await?;
-            return Ok(());
+            ));
         }
-        Some(discord) if !verification::is_same_user(author, discord) => {
-            ctx.say(tr!(
+        Some(linked) if !verification::is_same_user(author, linked) => {
+            refused(Refusal::LinkedElsewhere { linked }).await;
+            return Ok(tr!(
                 lang,
                 "verify-linked-to-someone-else",
                 name = profile.name.as_str(),
-                linked = discord.as_str(),
+                linked = linked.as_str(),
                 discord = author.name.as_str()
-            ))
-            .await?;
-            return Ok(());
+            ));
         }
         Some(_) => {}
     }
 
-    let member = match ctx.author_member().await {
-        Some(member) => member.into_owned(),
-        None => guild_id.member(ctx, author.id).await?,
-    };
     let services = Services {
         db: &data.db,
         hypixel: &data.hypixel,
         mojang: &data.http,
-        discord: ctx.http(),
-        cache: ctx.cache(),
+        discord,
+        cache,
     };
     match verification::check_unique(&services, guild_id, author.id, &profile.id).await? {
         None => {}
         Some(Conflict::MemberLinked { minecraft_name }) => {
-            ctx.say(tr!(
+            refused(Refusal::AlreadyVerified {
+                current: &minecraft_name,
+            })
+            .await;
+            return Ok(tr!(
                 lang,
                 "verify-already-verified",
                 name = minecraft_name.as_str()
-            ))
-            .await?;
-            return Ok(());
+            ));
         }
         Some(Conflict::AccountLinked { name }) => {
-            ctx.say(tr!(
+            refused(Refusal::AccountTaken { owner: &name }).await;
+            return Ok(tr!(
                 lang,
                 "verify-account-taken",
                 name = profile.name.as_str(),
                 member = name.as_str()
-            ))
-            .await?;
-            return Ok(());
+            ));
         }
     }
     let outcome = verification::sync_member(
         &services,
         guild_id,
-        &member,
+        member,
         verified_role_id,
         config.unverified_role_id,
         config.hypixel_guild.as_ref().map(|link| link.id.as_str()),
@@ -242,6 +268,17 @@ pub async fn verify(ctx: Context<'_>, username: String) -> Result<(), Error> {
         Record::Verified { by: None },
     )
     .await?;
+    server_log::post(
+        discord,
+        &config,
+        Event::Verified {
+            member: author.id,
+            name: &profile.name,
+            by: None,
+            outcome: &outcome,
+        },
+    )
+    .await;
 
     let mut lines = vec![tr!(lang, "verify-done", name = profile.name.as_str())];
     if !outcome.added.is_empty() {
@@ -271,6 +308,5 @@ pub async fn verify(ctx: Context<'_>, username: String) -> Result<(), Error> {
             reason = lang.t(why)
         )),
     }
-    ctx.say(lines.join("\n")).await?;
-    Ok(())
+    Ok(lines.join("\n"))
 }
