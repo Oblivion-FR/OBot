@@ -51,6 +51,46 @@
   <section class="card">
     <div class="card-header">
       <div>
+        <h2>Texts per rank</h2>
+        <p class="hint">Change the prefix, label or suffix of a single rank, like <code>★MVP++★</code>. Untouched parts follow the field's defaults above; an emptied part shows nothing. Ranks without a label are skipped.</p>
+      </div>
+    </div>
+    {% for table in value_tables %}
+    <h3 class="value-table-title">{{ table.title }}</h3>
+    {% if let Some(note) = table.note %}
+    <p class="hint">{{ note }}</p>
+    {% else %}
+    <div class="table-scroll">
+      <table class="segments value-texts">
+        <thead>
+          <tr><th>Rank</th><th>Prefix</th><th>Label</th><th>Suffix</th><th><span class="visually-hidden">Custom</span></th></tr>
+        </thead>
+        <tbody>
+          {% for row in table.rows %}
+          <tr>
+            <td>
+              {{ row.name }}
+              <input type="hidden" name="text_{{ table.key }}_{{ loop.index0 }}_value" value="{{ row.value }}">
+              <input type="hidden" name="text_{{ table.key }}_{{ loop.index0 }}_default_prefix" value="{{ row.default_prefix }}">
+              <input type="hidden" name="text_{{ table.key }}_{{ loop.index0 }}_default_label" value="{{ row.default_label }}">
+              <input type="hidden" name="text_{{ table.key }}_{{ loop.index0 }}_default_suffix" value="{{ row.default_suffix }}">
+            </td>
+            <td><input name="text_{{ table.key }}_{{ loop.index0 }}_prefix" value="{{ row.prefix }}" maxlength="8" aria-label="{{ row.name }} prefix"></td>
+            <td><input class="wide" name="text_{{ table.key }}_{{ loop.index0 }}_label" value="{{ row.label }}" maxlength="32" placeholder="none" aria-label="{{ row.name }} label"></td>
+            <td><input name="text_{{ table.key }}_{{ loop.index0 }}_suffix" value="{{ row.suffix }}" maxlength="8" aria-label="{{ row.name }} suffix"></td>
+            <td>{% if row.custom %}<span class="badge ok">Custom</span>{% endif %}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% endif %}
+    {% endfor %}
+  </section>
+
+  <section class="card">
+    <div class="card-header">
+      <div>
         <h2>Preview</h2>
         <p class="hint">Updates as you edit. "Longest" has every field at its maximum length.</p>
       </div>

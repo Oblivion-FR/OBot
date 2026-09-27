@@ -4,7 +4,7 @@ use sqlx::sqlite::SqliteConnectOptions;
 use std::str::FromStr;
 
 use crate::Error;
-use crate::nickname::{self, NicknameFormat, Segment};
+use crate::nickname::{self, CustomText, NicknameFormat, Segment, ValueText};
 
 pub async fn connect(url: &str) -> Result<SqlitePool, Error> {
     let options = SqliteConnectOptions::from_str(url)?.create_if_missing(true);
@@ -265,6 +265,15 @@ pub async fn delete_group(
     Ok(())
 }
 
+/// `(field, value, prefix, label, suffix)` of `nickname_value_text`
+type ValueTextRow = (
+    String,
+    String,
+    Option<String>,
+    Option<String>,
+    Option<String>,
+);
+
 pub async fn get_nickname_format(
     db: &SqlitePool,
     guild_id: serenity::GuildId,
@@ -310,6 +319,27 @@ pub async fn get_nickname_format(
         }
     }
     format.segments = segments;
+
+    let texts: Vec<ValueTextRow> = sqlx::query_as(
+        "SELECT field, value, prefix, label, suffix FROM nickname_value_text WHERE guild_id = ?",
+    )
+    .bind(to_db(guild_id))
+    .fetch_all(db)
+    .await?;
+    format.custom_texts = texts
+        .into_iter()
+        .filter_map(|(field, value, prefix, label, suffix)| {
+            Some(CustomText {
+                field: nickname::Field::parse(&field)?,
+                value,
+                text: ValueText {
+                    prefix,
+                    label,
+                    suffix,
+                },
+            })
+        })
+        .collect();
     Ok(format)
 }
 
@@ -348,6 +378,29 @@ pub async fn set_nickname_format(
         .bind(&segment.prefix)
         .bind(&segment.suffix)
         .bind(segment.importance)
+        .execute(&mut *transaction)
+        .await?;
+    }
+
+    sqlx::query("DELETE FROM nickname_value_text WHERE guild_id = ?")
+        .bind(to_db(guild_id))
+        .execute(&mut *transaction)
+        .await?;
+    for custom in &format.custom_texts {
+        if custom.text.is_default() {
+            continue;
+        }
+        sqlx::query(
+            "INSERT INTO nickname_value_text (guild_id, field, value, prefix, label, suffix)
+             VALUES (?, ?, ?, ?, ?, ?)
+             ON CONFLICT (guild_id, field, value) DO NOTHING",
+        )
+        .bind(to_db(guild_id))
+        .bind(custom.field.as_str())
+        .bind(&custom.value)
+        .bind(&custom.text.prefix)
+        .bind(&custom.text.label)
+        .bind(&custom.text.suffix)
         .execute(&mut *transaction)
         .await?;
     }

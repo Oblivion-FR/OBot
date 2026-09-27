@@ -174,8 +174,23 @@ fn rules_page_renders_groups_rules_and_rank_dropdown() {
 }
 
 #[test]
-fn nickname_page_renders_fields_and_preview() {
-    let format = NicknameFormat::default();
+fn nickname_page_renders_fields_texts_and_preview() {
+    let format = NicknameFormat {
+        custom_texts: vec![nickname::CustomText {
+            field: Field::HypixelRank,
+            value: "SUPERSTAR".to_owned(),
+            text: nickname::ValueText {
+                prefix: Some("★".to_owned()),
+                label: None,
+                suffix: Some("★".to_owned()),
+            },
+        }],
+        ..NicknameFormat::default()
+    };
+    let guild_ranks = Ok(vec![
+        ("Guild Master".to_owned(), "GM".to_owned()),
+        ("Officer".to_owned(), "OFC".to_owned()),
+    ]);
     let html = NicknamePage {
         shell: shell(),
         guild: guild(2, "Test", None),
@@ -185,6 +200,7 @@ fn nickname_page_renders_fields_and_preview() {
         nickname_enabled: true,
         nickname_separator: format.separator.clone(),
         nickname_rows: NicknameRow::from_format(&format),
+        value_tables: value_tables(&format, guild_ranks),
         previews: previews(&format),
     }
     .render()
@@ -192,7 +208,78 @@ fn nickname_page_renders_fields_and_preview() {
 
     assert!(html.contains(r#"name="hypixel_rank_prefix" value="[""#));
     assert!(html.contains("[MVP+] Notch [OFC]"));
+    assert!(
+        html.contains("★MVP++★ Sixteen_Chars_Ok"),
+        "custom texts show in the preview"
+    );
     assert!(html.contains(r#"name="nickname_enabled" checked"#));
+
+    // Hypixel ranks: NO_RANK first, with no default label; SUPERSTAR is row 5
+    assert!(html.contains(r#"name="text_hypixel_rank_0_value" value="NO_RANK""#));
+    assert!(html.contains(r#"name="text_hypixel_rank_0_default_label" value="""#));
+    assert!(html.contains(r#"name="text_hypixel_rank_5_prefix" value="★""#));
+    assert!(html.contains(r#"name="text_hypixel_rank_5_default_prefix" value="[""#));
+    assert!(html.contains(r#"name="text_hypixel_rank_5_label" value="MVP++""#));
+    assert!(html.contains("Custom</span>"));
+    // Guild ranks show their tag as the default label
+    assert!(html.contains(r#"name="text_guild_rank_tag_1_value" value="Officer""#));
+    assert!(html.contains(r#"name="text_guild_rank_tag_1_label" value="OFC""#));
+}
+
+#[test]
+fn value_tables_explain_a_missing_guild() {
+    let tables = value_tables(
+        &NicknameFormat::default(),
+        Err("Link a Hypixel guild first."),
+    );
+    assert_eq!(tables[1].note, Some("Link a Hypixel guild first."));
+    assert!(tables[1].rows.is_empty());
+}
+
+#[test]
+fn only_changed_value_texts_become_custom() {
+    let row = |part: &str, value: &str| (format!("text_hypixel_rank_0_{part}"), value.to_owned());
+    let form: HashMap<String, String> = [
+        row("value", "SUPERSTAR"),
+        row("default_prefix", "["),
+        row("default_label", "MVP++"),
+        row("default_suffix", "]"),
+        // Prefix emptied, label changed, suffix left as shown
+        row("prefix", ""),
+        row("label", "Star"),
+        row("suffix", "]"),
+        (
+            "text_guild_rank_tag_0_value".to_owned(),
+            "Officer".to_owned(),
+        ),
+        (
+            "text_guild_rank_tag_0_default_label".to_owned(),
+            "OFC".to_owned(),
+        ),
+        ("text_guild_rank_tag_0_label".to_owned(), "OFC".to_owned()),
+    ]
+    .into_iter()
+    .collect();
+    let format = parse_nickname_form(&form);
+
+    assert_eq!(
+        format.custom_texts.len(),
+        1,
+        "the untouched guild rank isn't custom"
+    );
+    let custom = &format.custom_texts[0];
+    assert_eq!(
+        (custom.field, custom.value.as_str()),
+        (Field::HypixelRank, "SUPERSTAR")
+    );
+    assert_eq!(
+        custom.text,
+        nickname::ValueText {
+            prefix: Some(String::new()),
+            label: Some("Star".to_owned()),
+            suffix: None,
+        }
+    );
 }
 
 #[test]

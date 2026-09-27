@@ -555,6 +555,127 @@ impl NicknameRow {
     }
 }
 
+/// One value's texts in the form: the effective ones, and the defaults they are compared to
+/// on save, so only what was actually changed becomes custom
+struct ValueRow {
+    /// The key stored with custom texts
+    value: String,
+    /// How the value is named in the panel
+    name: String,
+    prefix: String,
+    label: String,
+    suffix: String,
+    default_prefix: String,
+    default_label: String,
+    default_suffix: String,
+    custom: bool,
+}
+
+struct ValueTable {
+    key: &'static str,
+    title: &'static str,
+    /// Why the table has no rows
+    note: Option<&'static str>,
+    rows: Vec<ValueRow>,
+}
+
+/// The per value texts of the Hypixel rank and guild rank fields. `guild_ranks` are the linked
+/// guild's ranks with their tag, or why there are none.
+fn value_tables(
+    format: &NicknameFormat,
+    guild_ranks: Result<Vec<(String, String)>, &'static str>,
+) -> Vec<ValueTable> {
+    let hypixel_ranks = hypixel::RANKS
+        .iter()
+        .map(|&(key, label)| {
+            // Players without a rank show nothing unless given a label
+            let default_label = if key == hypixel::NO_RANK { "" } else { label };
+            (key.to_owned(), label.to_owned(), default_label.to_owned())
+        })
+        .collect();
+    let (guild_values, guild_note) = match guild_ranks {
+        Ok(ranks) => (
+            ranks
+                .into_iter()
+                .map(|(name, tag)| (name.clone(), name, tag))
+                .collect(),
+            None,
+        ),
+        Err(note) => (Vec::new(), Some(note)),
+    };
+
+    [
+        (Field::HypixelRank, "Hypixel ranks", hypixel_ranks, None),
+        (Field::GuildRankTag, "Guild ranks", guild_values, guild_note),
+    ]
+    .into_iter()
+    .map(|(field, title, values, note)| {
+        let segment = format
+            .segments
+            .iter()
+            .find(|segment| segment.field == field);
+        let field_prefix = segment
+            .map(|segment| segment.prefix.clone())
+            .unwrap_or_default();
+        let field_suffix = segment
+            .map(|segment| segment.suffix.clone())
+            .unwrap_or_default();
+        let rows = values
+            .into_iter()
+            .map(|(value, name, default_label): (String, String, String)| {
+                let custom = format.custom_text(field, &value);
+                let part =
+                    |custom: Option<&String>, default: &String| custom.unwrap_or(default).clone();
+                ValueRow {
+                    prefix: part(custom.and_then(|c| c.prefix.as_ref()), &field_prefix),
+                    label: part(custom.and_then(|c| c.label.as_ref()), &default_label),
+                    suffix: part(custom.and_then(|c| c.suffix.as_ref()), &field_suffix),
+                    custom: custom.is_some_and(|custom| !custom.is_default()),
+                    default_prefix: field_prefix.clone(),
+                    default_label,
+                    default_suffix: field_suffix.clone(),
+                    value,
+                    name,
+                }
+            })
+            .collect();
+        ValueTable {
+            key: field.as_str(),
+            title,
+            note,
+            rows,
+        }
+    })
+    .collect()
+}
+
+/// The linked guild's ranks with their tag, highest first
+async fn guild_rank_tags(
+    state: &AppState,
+    guild_id: serenity::GuildId,
+) -> Result<Result<Vec<(String, String)>, &'static str>, AppError> {
+    let Some(link) = config::get_config(&state.db, guild_id).await?.hypixel_guild else {
+        return Ok(Err(
+            "Link a Hypixel guild in Verification to customize its ranks.",
+        ));
+    };
+    Ok(match state.hypixel.guild(&link.id).await {
+        Ok(Some(guild)) => Ok(guild
+            .rank_names()
+            .into_iter()
+            .map(|name| {
+                let tag = guild.rank_tag(&name).unwrap_or_default().to_owned();
+                (name, tag)
+            })
+            .collect()),
+        Ok(None) => Err("The linked Hypixel guild doesn't exist anymore."),
+        Err(error) => {
+            eprintln!("Could not load Hypixel guild {}: {error}", link.id);
+            Err("Couldn't load the guild's ranks from Hypixel, try again later.")
+        }
+    })
+}
+
 struct Preview {
     label: &'static str,
     nickname: String,
@@ -569,20 +690,40 @@ impl Preview {
 /// Sample members: a typical one, and one with every field at its longest to show what gets dropped
 fn previews(format: &NicknameFormat) -> Vec<Preview> {
     let samples = [
-        ("Example", "MVP+", "Notch", "OFC", "OBOT"),
-        ("Longest", "MVP++", "Sixteen_Chars_Ok", "ELITE", "LONGTG"),
+        (
+            "Example",
+            ("MVP_PLUS", "MVP+"),
+            "Notch",
+            ("Officer", "OFC"),
+            "OBOT",
+        ),
+        (
+            "Longest",
+            ("SUPERSTAR", "MVP++"),
+            "Sixteen_Chars_Ok",
+            ("Elite", "ELITE"),
+            "LONGTG",
+        ),
     ];
     samples
         .into_iter()
-        .map(|(label, rank, ign, guild_rank_tag, guild_tag)| Preview {
-            label,
-            nickname: format.render(&nickname::Values {
-                hypixel_rank: Some(rank),
-                ign,
-                guild_rank_tag: Some(guild_rank_tag),
-                guild_tag: Some(guild_tag),
-            }),
-        })
+        .map(
+            |(label, (rank, rank_label), ign, (guild_rank, guild_rank_tag), guild_tag)| Preview {
+                label,
+                nickname: format.render(&nickname::Values {
+                    hypixel_rank: Some(nickname::Keyed {
+                        key: rank,
+                        label: Some(rank_label),
+                    }),
+                    ign,
+                    guild_rank: Some(nickname::Keyed {
+                        key: guild_rank,
+                        label: Some(guild_rank_tag),
+                    }),
+                    guild_tag: Some(guild_tag),
+                }),
+            },
+        )
         .collect()
 }
 
@@ -597,6 +738,7 @@ struct NicknamePage {
     nickname_enabled: bool,
     nickname_separator: String,
     nickname_rows: Vec<NicknameRow>,
+    value_tables: Vec<ValueTable>,
     previews: Vec<Preview>,
 }
 
@@ -613,6 +755,7 @@ pub async fn nickname(
 ) -> Result<Response, AppError> {
     let ctx = or_respond!(guild_context(&state, user, guild_id).await);
     let format = config::get_nickname_format(&state.db, ctx.access.guild_id).await?;
+    let guild_ranks = guild_rank_tags(&state, ctx.access.guild_id).await?;
 
     render(NicknamePage {
         shell: ctx.shell,
@@ -623,18 +766,22 @@ pub async fn nickname(
         nickname_enabled: format.enabled,
         nickname_separator: format.separator.clone(),
         nickname_rows: NicknameRow::from_format(&format),
+        value_tables: value_tables(&format, guild_ranks),
         previews: previews(&format),
     })
 }
 
 const MAX_WRAPPING_LEN: usize = 8;
 const MAX_SEPARATOR_LEN: usize = 5;
+/// Rows read per value table, well above Hypixel's ranks and a guild's
+const MAX_VALUE_ROWS: usize = 100;
 
 fn limit(value: &str, max: usize) -> String {
     value.chars().take(max).collect()
 }
 
-/// The nickname form has one set of inputs per field, named `<field>_<setting>`
+/// The nickname form has one set of inputs per field, named `<field>_<setting>`, and one per
+/// value of the fields with value texts, named `text_<field>_<row>_<part>`
 fn parse_nickname_form(form: &HashMap<String, String>) -> NicknameFormat {
     let get = |name: &str| form.get(name).map(String::as_str).unwrap_or_default();
     let mut positioned: Vec<(u8, usize, nickname::Segment)> = Field::ALL
@@ -661,6 +808,36 @@ fn parse_nickname_form(form: &HashMap<String, String>) -> NicknameFormat {
         .collect();
     positioned.sort_by_key(|(position, index, _)| (*position, *index));
 
+    let mut custom_texts = Vec::new();
+    for field in Field::WITH_VALUE_TEXTS {
+        let key = field.as_str();
+        for row in 0..MAX_VALUE_ROWS {
+            let input = |part: &str| form.get(&format!("text_{key}_{row}_{part}"));
+            let Some(value) = input("value") else {
+                break;
+            };
+            // A part is custom only when it differs from the default it was shown with
+            let part = |name: &str, max: usize| {
+                let shown = input(&format!("default_{name}")).map(String::as_str);
+                input(name)
+                    .map(|text| limit(text, max))
+                    .filter(|text| Some(text.as_str()) != shown)
+            };
+            let text = nickname::ValueText {
+                prefix: part("prefix", MAX_WRAPPING_LEN),
+                label: part("label", nickname::MAX_LEN),
+                suffix: part("suffix", MAX_WRAPPING_LEN),
+            };
+            if !text.is_default() {
+                custom_texts.push(nickname::CustomText {
+                    field,
+                    value: value.clone(),
+                    text,
+                });
+            }
+        }
+    }
+
     NicknameFormat {
         enabled: form.contains_key("nickname_enabled"),
         separator: limit(get("separator"), MAX_SEPARATOR_LEN),
@@ -668,6 +845,7 @@ fn parse_nickname_form(form: &HashMap<String, String>) -> NicknameFormat {
             .into_iter()
             .map(|(_, _, segment)| segment)
             .collect(),
+        custom_texts,
     }
 }
 

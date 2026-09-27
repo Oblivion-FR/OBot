@@ -449,6 +449,9 @@ table.segments td { padding: 8px; border-top: 1px solid var(--border); }
 table.segments td:nth-child(2) { font-weight: 500; white-space: nowrap; }
 table.segments input[type="number"] { width: 70px; }
 table.segments input:not([type]) { width: 80px; }
+table.segments input.wide { width: 140px; }
+.value-table-title { font-size: 14px; margin: 16px 0 8px; }
+.value-table-title:first-of-type { margin-top: 0; }
 .switch.compact { gap: 0; }
 
 .preview-line { display: flex; gap: 12px; align-items: baseline; flex-wrap: wrap; padding: 6px 0; }
@@ -567,9 +570,6 @@ tr.notice-error td { color: var(--danger); }
 .form-error { color: var(--danger); font-size: 13px; font-weight: 500; min-height: 1em; }
 .form-error:empty { display: none; }
 
-/* Home and login */
-
-.server-card { display: flex !important; flex-direction: column; align-items: center; gap: 12px; text-align: center; padding: 28px 20px; }
 .version-footer { padding: 0 32px 24px; color: var(--muted); font-size: 12px; }
 .version-footer a { color: inherit; }
 .version-footer a:hover { color: var(--accent); }
@@ -577,6 +577,9 @@ tr.notice-error td { color: var(--danger); }
 .login .version-footer { padding: 0; text-align: center; }
 .login:has(.version-footer) { grid-template-rows: 1fr auto; }
 
+/* Home and login */
+
+.server-card { display: flex !important; flex-direction: column; align-items: center; gap: 12px; text-align: center; padding: 28px 20px; }
 .server-card strong { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .server-card.add { border-style: dashed; color: var(--muted); }
 .server-card.add .guild-icon { color: var(--success); font-size: 28px; font-weight: 400; }

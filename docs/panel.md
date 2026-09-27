@@ -84,6 +84,10 @@ Builds members' nicknames from their Hypixel data, for example `[MVP+] Notch [OF
 - Each field (Hypixel rank, Minecraft name, guild rank tag, guild tag) can be shown or hidden,
   ordered, and wrapped in a prefix and suffix.
 - A field without a value, like a player without a rank, is skipped with its prefix and suffix.
+- **Texts per rank** changes the prefix, label or suffix of a single Hypixel rank or guild rank,
+  like `★MVP++★` or a crown instead of `[GM]`. The inputs show the current texts: change only
+  the parts you want, the others keep following the field's defaults. An emptied part shows
+  nothing, and "No rank" can get a label so players without a rank show one too.
 - Discord nicknames are limited to 32 characters: above that, the field with the highest
   importance number is dropped first.
 - The preview updates as you edit.

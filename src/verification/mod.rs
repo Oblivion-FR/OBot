@@ -219,12 +219,17 @@ pub async fn sync_member(
     let mut nickname_change = NicknameChange::Unchanged;
     if nickname_format.enabled {
         let nickname = nickname_format.render(&nickname::Values {
-            hypixel_rank: player.rank.as_deref().map(hypixel::rank_label),
+            hypixel_rank: Some(nickname::Keyed {
+                key: player.rank.as_deref().unwrap_or(hypixel::NO_RANK),
+                label: player.rank.as_deref().map(hypixel::rank_label),
+            }),
             ign: &profile.name,
-            guild_rank_tag: player_guild
-                .as_ref()
-                .zip(guild_rank)
-                .and_then(|(guild, rank)| guild.rank_tag(rank)),
+            guild_rank: player_guild.as_ref().zip(guild_rank).map(|(guild, rank)| {
+                nickname::Keyed {
+                    key: rank,
+                    label: guild.rank_tag(rank),
+                }
+            }),
             guild_tag: player_guild.as_ref().and_then(|guild| guild.tag.as_deref()),
         });
         // An empty nickname would reset it to the Discord name instead
