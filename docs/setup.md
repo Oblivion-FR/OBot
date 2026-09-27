@@ -5,7 +5,8 @@ settings in a SQLite database.
 
 ## Requirements
 
-- A recent stable [Rust](https://rustup.rs) toolchain (the project uses the 2024 edition)
+- [rustup](https://rustup.rs). The Rust release is pinned in `rust-toolchain.toml`, and rustup
+  installs it automatically on the first `cargo` command in the repository
 - A Discord application with a bot
 - A Hypixel API key
 

@@ -71,6 +71,15 @@ Keep the body to what the diff doesn't show, usually why a change is needed. A h
 fine when there's nothing to add. For a breaking change, add a `BREAKING CHANGE:` paragraph
 stating what must change on the next deploy (new variable, removed setting…).
 
+## Rust version
+
+`rust-toolchain.toml` pins one Rust release for everyone: your machine, pre-commit and CI all use
+it, so a lint can't pass locally and fail in CI. The Docker images use the same release through
+their base image (`FROM rust:<version>-…`), and CI fails if a Dockerfile doesn't match the file.
+
+To upgrade, change the version in `rust-toolchain.toml` and in both Dockerfiles, then fix what the
+new clippy reports.
+
 ## Code conventions
 
 - **Tests** live next to the module they test, in a `tests.rs` file declared with

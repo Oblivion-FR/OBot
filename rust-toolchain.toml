@@ -1,0 +1,6 @@
+# The Rust release used everywhere: locally, by pre-commit and by CI. The Dockerfiles' base
+# images must be the same version, CI checks it. Upgrade them together.
+[toolchain]
+channel = "1.98.1"
+components = ["rustfmt", "clippy"]
+profile = "minimal"

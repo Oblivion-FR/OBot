@@ -1,4 +1,5 @@
-FROM rust:1.94-slim-trixie AS build
+# Same Rust release as rust-toolchain.toml
+FROM rust:1.98.1-slim-trixie AS build
 WORKDIR /app
 COPY . .
 # The cache mounts keep downloaded crates and compiled dependencies between builds. `target` lives

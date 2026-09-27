@@ -1,7 +1,8 @@
 # Development image: runs `cargo run` (debug build) under a file watcher that rebuilds and
 # restarts the bot on every change. The sources are copied in, so it runs anywhere; with
 # `docker compose watch` (see compose.development.yml), local edits are synced into it.
-FROM rust:1.94-slim-trixie
+# Same Rust release as rust-toolchain.toml
+FROM rust:1.98.1-slim-trixie
 
 RUN cargo install --locked watchexec-cli
 

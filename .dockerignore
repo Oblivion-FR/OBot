@@ -5,6 +5,9 @@ target
 docs
 *.md
 
+# The base image already is the pinned Rust release; with this file rustup would download it again
+rust-toolchain.toml
+
 # Secrets and local data: settings come from the environment, the database from a volume
 .env
 .env.*
