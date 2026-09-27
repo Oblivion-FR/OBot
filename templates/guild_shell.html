@@ -1,27 +1,27 @@
 {% extends "shell.html" %}
 {% import "icons.html" as icons %}
-{% block title %}{{ section_title }} · {{ guild.name }} · OBot{% endblock %}
+{% block title %}{{ lang.t(section_title) }} · {{ guild.name }} · OBot{% endblock %}
 {% block sidebar %}
 <aside class="sidebar">
   <div class="sidebar-header">
     <span class="guild-icon">{% if let Some(icon) = guild.icon_url.as_deref() %}<img src="{{ icon }}" alt="">{% else %}{{ guild.initials }}{% endif %}</span>
     <div>
       <strong>{{ guild.name }}</strong>
-      <span class="hint">Server settings</span>
+      <span class="hint">{{ lang.t("server-settings") }}</span>
     </div>
   </div>
-  <nav class="nav" aria-label="Sections">
-    <span class="nav-label">General</span>
-    <a href="/guilds/{{ guild.id }}"{% if section == "overview" %} class="active" aria-current="page"{% endif %}>{% call icons::overview() %}{% endcall %} Overview</a>
-    <span class="nav-label">Verification</span>
-    <a href="/guilds/{{ guild.id }}/verification"{% if section == "verification" %} class="active" aria-current="page"{% endif %}>{% call icons::verification() %}{% endcall %} Verification</a>
-    <a href="/guilds/{{ guild.id }}/rules"{% if section == "rules" %} class="active" aria-current="page"{% endif %}>{% call icons::rules() %}{% endcall %} Role rules</a>
-    <a href="/guilds/{{ guild.id }}/nickname"{% if section == "nickname" %} class="active" aria-current="page"{% endif %}>{% call icons::nickname() %}{% endcall %} Nickname</a>
+  <nav class="nav" aria-label="{{ lang.t("nav-sections") }}">
+    <span class="nav-label">{{ lang.t("nav-general") }}</span>
+    <a href="/guilds/{{ guild.id }}"{% if section == "overview" %} class="active" aria-current="page"{% endif %}>{% call icons::overview() %}{% endcall %} {{ lang.t("nav-overview") }}</a>
+    <span class="nav-label">{{ lang.t("nav-verification-group") }}</span>
+    <a href="/guilds/{{ guild.id }}/verification"{% if section == "verification" %} class="active" aria-current="page"{% endif %}>{% call icons::verification() %}{% endcall %} {{ lang.t("nav-verification") }}</a>
+    <a href="/guilds/{{ guild.id }}/rules"{% if section == "rules" %} class="active" aria-current="page"{% endif %}>{% call icons::rules() %}{% endcall %} {{ lang.t("nav-rules") }}</a>
+    <a href="/guilds/{{ guild.id }}/nickname"{% if section == "nickname" %} class="active" aria-current="page"{% endif %}>{% call icons::nickname() %}{% endcall %} {{ lang.t("nav-nickname") }}</a>
   </nav>
 </aside>
 {% endblock %}
-{% block topbar_title %}<span class="crumb">{{ guild.name }}</span><span class="crumb-sep">/</span><strong>{{ section_title }}</strong>{% endblock %}
+{% block topbar_title %}<span class="crumb">{{ guild.name }}</span><span class="crumb-sep">/</span><strong>{{ lang.t(section_title) }}</strong>{% endblock %}
 {% block content %}
-{% if let Some(error) = error %}<div class="alert" role="alert">{% call icons::alert() %}{% endcall %} {{ error }}</div>{% endif %}
+{% if let Some(error) = error %}<div class="alert" role="alert">{% call icons::alert() %}{% endcall %} {{ lang.t(error) }}</div>{% endif %}
 {% block page %}{% endblock %}
 {% endblock %}

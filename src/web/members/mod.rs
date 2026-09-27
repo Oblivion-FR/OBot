@@ -8,11 +8,12 @@ use std::collections::HashMap;
 use std::num::NonZeroU64;
 use std::sync::Arc;
 
-use super::auth::LoggedIn;
+use super::auth::{LoggedIn, PanelLang};
 use super::{Access, AppError, AppState};
 use crate::Error;
 use crate::config::{self, GuildConfig, VerifiedMember};
 use crate::hypixel::{self, Player};
+use crate::i18n::{Lang, tr};
 use crate::verification::{self, Conflict, NicknameChange, Outcome, Record, RefreshFailure};
 
 const PAGE_SIZE: usize = 50;
@@ -170,16 +171,16 @@ fn member_row(
     }
 }
 
-/// Table columns as `(key, label)`, in display order. All can be sorted, and all but the
-/// member column can be hidden.
+/// Table columns as `(key, label message id)`, in display order. All can be sorted, and all
+/// but the member column can be hidden.
 const COLUMNS: [(&str, &str); 7] = [
-    ("name", "Member"),
-    ("minecraft", "Minecraft"),
-    ("status", "Status"),
-    ("joined", "Joined server"),
-    ("verified", "Verified on"),
-    ("guild_joined", "Joined guild"),
-    ("xp", "Guild XP (7 days)"),
+    ("name", "column-name"),
+    ("minecraft", "column-minecraft"),
+    ("status", "column-status"),
+    ("joined", "column-joined"),
+    ("verified", "column-verified"),
+    ("guild_joined", "column-guild-joined"),
+    ("xp", "column-xp"),
 ];
 
 /// Hidden until the viewer turns them on, most servers don't track guild XP
@@ -383,13 +384,13 @@ impl AppState {
         config: &GuildConfig,
     ) -> Result<Option<Arc<hypixel::Guild>>, &'static str> {
         let Some(link) = &config.hypixel_guild else {
-            return Err("Link a Hypixel guild to fill the guild columns.");
+            return Err("members-guild-not-linked");
         };
         match self.hypixel.guild(&link.id).await {
             Ok(guild) => Ok(guild),
             Err(error) => {
                 eprintln!("Could not load Hypixel guild {}: {error}", link.id);
-                Err("Couldn't load the guild from Hypixel, the guild columns are empty.")
+                Err("members-guild-unavailable")
             }
         }
     }
@@ -439,10 +440,7 @@ pub async fn table(
         Ok(members) => members,
         Err(error) => {
             eprintln!("Could not list members of {guild_id}: {error}");
-            table.error = Some(
-                "Couldn't list the server members. Enable Server Members Intent in the Discord \
-                 developer portal (Bot → Privileged Gateway Intents), then reload.",
-            );
+            table.error = Some("members-unavailable");
             return Ok(table);
         }
     };
@@ -506,22 +504,19 @@ pub async fn table(
 #[derive(Template)]
 #[template(path = "member_row.html")]
 struct RowFragment {
+    lang: Lang,
     guild_id: serenity::GuildId,
     can_act: bool,
     row: MemberRow,
 }
 
-/// Why an action on a member was refused, shown to the admin
-struct Refused(String);
+/// Why an action on a member was refused, as a message id shown to the admin
+struct Refused(&'static str);
 
-impl From<&str> for Refused {
-    fn from(reason: &str) -> Self {
-        Self(reason.to_owned())
-    }
-}
-
+/// `nothing_changed` is the message id shown when the member's roles and nickname didn't move
 fn describe(
     state: &AppState,
+    lang: Lang,
     guild_id: serenity::GuildId,
     prefix: String,
     outcome: &Outcome,
@@ -530,30 +525,43 @@ fn describe(
     let names = |roles: &std::collections::BTreeSet<serenity::RoleId>| {
         roles
             .iter()
-            .map(|role| format!("@{}", state.role_chip(guild_id, *role).name))
+            .map(|role| format!("@{}", state.role_chip(lang, guild_id, *role).name))
             .collect::<Vec<_>>()
             .join(", ")
     };
     let mut parts = vec![prefix];
     if !outcome.added.is_empty() {
-        parts.push(format!("Added {}.", names(&outcome.added)));
+        parts.push(tr!(lang, "notice-added", roles = names(&outcome.added)));
     }
     if !outcome.removed.is_empty() {
-        parts.push(format!("Removed {}.", names(&outcome.removed)));
+        parts.push(tr!(
+            lang,
+            "notice-removed-roles",
+            roles = names(&outcome.removed)
+        ));
     }
     let mut kind = "ok";
     match &outcome.nickname {
         NicknameChange::Unchanged => {}
-        NicknameChange::Set(nickname) => parts.push(format!("Nickname set to {nickname}.")),
-        NicknameChange::Reset => parts.push("Nickname reset.".to_owned()),
+        NicknameChange::Set(nickname) => parts.push(tr!(
+            lang,
+            "notice-nickname-set",
+            nickname = nickname.as_str()
+        )),
+        NicknameChange::Reset => parts.push(lang.t("notice-nickname-reset")),
         NicknameChange::Skipped { nickname, why } => {
             kind = "warn";
-            parts.push(format!("Nickname not changed to {nickname}: {why}."));
+            parts.push(tr!(
+                lang,
+                "notice-nickname-skipped",
+                nickname = nickname.as_str(),
+                reason = lang.t(why)
+            ));
         }
     }
     let nickname_changed = !matches!(outcome.nickname, NicknameChange::Unchanged);
     if outcome.added.is_empty() && outcome.removed.is_empty() && !nickname_changed {
-        parts.push(nothing_changed.to_owned());
+        parts.push(lang.t(nothing_changed));
     }
     Notice {
         kind,
@@ -563,6 +571,7 @@ fn describe(
 
 async fn row_for(
     state: &AppState,
+    lang: Lang,
     guild_id: serenity::GuildId,
     member: &serenity::Member,
     config: &GuildConfig,
@@ -578,6 +587,7 @@ async fn row_for(
     );
     row.notice = Some(notice);
     let fragment = RowFragment {
+        lang,
         guild_id,
         can_act: config.verified_role_id.is_some(),
         row,
@@ -588,6 +598,7 @@ async fn row_for(
 /// Access and target checks shared by both actions
 async fn prepare(
     state: &AppState,
+    lang: Lang,
     user_id: serenity::UserId,
     guild_id: NonZeroU64,
     target_id: NonZeroU64,
@@ -596,22 +607,20 @@ async fn prepare(
         .access(serenity::GuildId::from(guild_id), user_id)
         .await
     else {
-        return Ok(Err((
-            StatusCode::FORBIDDEN,
-            "You can't manage this server anymore.",
-        )
-            .into_response()));
+        return Ok(Err(
+            (StatusCode::FORBIDDEN, lang.t("cannot-manage-server")).into_response()
+        ));
     };
     let target_id = serenity::UserId::from(target_id);
     let Ok(member) = state.discord.get_member(access.guild_id, target_id).await else {
         return Ok(Err(
-            (StatusCode::NOT_FOUND, "This member left the server.").into_response()
+            (StatusCode::NOT_FOUND, lang.t("member-left")).into_response()
         ));
     };
     if member.user.bot {
         return Ok(Err((
             StatusCode::UNPROCESSABLE_ENTITY,
-            "Bots can't be verified.",
+            lang.t("bots-cannot-verify"),
         )
             .into_response()));
     }
@@ -629,7 +638,7 @@ async fn run_sync(
     verified_by: serenity::UserId,
 ) -> Result<Result<Outcome, Refused>, Error> {
     let Some(verified_role_id) = config.verified_role_id else {
-        return Ok(Err("Pick a verified role first.".into()));
+        return Ok(Err(Refused("pick-verified-role-first")));
     };
     let outcome = verification::sync_member(
         &state.services(),
@@ -653,9 +662,11 @@ async fn run_sync(
 pub async fn reverify(
     State(state): State<Arc<AppState>>,
     LoggedIn(user): LoggedIn,
+    PanelLang(lang): PanelLang,
     Path((guild_id, target_id)): Path<(NonZeroU64, NonZeroU64)>,
 ) -> Result<Response, AppError> {
-    let (access, member, config) = match prepare(&state, user.id, guild_id, target_id).await? {
+    let (access, member, config) = match prepare(&state, lang, user.id, guild_id, target_id).await?
+    {
         Ok(prepared) => prepared,
         Err(response) => return Ok(response),
     };
@@ -667,8 +678,8 @@ pub async fn reverify(
     let Some(stored) =
         config::get_verified_member(&state.db, access.guild_id, member.user.id).await?
     else {
-        let notice = error("This member has no linked account, use Verify instead.".to_owned());
-        return row_for(&state, access.guild_id, &member, &config, notice).await;
+        let notice = error(lang.t("no-linked-account"));
+        return row_for(&state, lang, access.guild_id, &member, &config, notice).await;
     };
     let notice = match verification::refresh_member(
         &state.services(),
@@ -681,19 +692,21 @@ pub async fn reverify(
     {
         Ok((profile, outcome)) => describe(
             &state,
+            lang,
             access.guild_id,
-            format!("Re-verified as {}.", profile.name),
+            tr!(lang, "notice-reverified", name = profile.name.as_str()),
             &outcome,
-            "Everything was already up to date.",
+            "notice-up-to-date",
         ),
-        Err(RefreshFailure::NotSetUp) => error("Pick a verified role first.".to_owned()),
-        Err(RefreshFailure::AccountGone) => error(format!(
-            "The Minecraft account {} no longer exists.",
-            stored.minecraft_name
+        Err(RefreshFailure::NotSetUp) => error(lang.t("pick-verified-role-first")),
+        Err(RefreshFailure::AccountGone) => error(tr!(
+            lang,
+            "account-gone",
+            name = stored.minecraft_name.as_str()
         )),
     };
     state.guild_members.remove(&access.guild_id);
-    row_for(&state, access.guild_id, &member, &config, notice).await
+    row_for(&state, lang, access.guild_id, &member, &config, notice).await
 }
 
 #[derive(Deserialize)]
@@ -711,43 +724,48 @@ fn refused(reason: impl Into<String>) -> Response {
 pub async fn admin_verify(
     State(state): State<Arc<AppState>>,
     LoggedIn(user): LoggedIn,
+    PanelLang(lang): PanelLang,
     Path((guild_id, target_id)): Path<(NonZeroU64, NonZeroU64)>,
     Form(form): Form<VerifyForm>,
 ) -> Result<Response, AppError> {
-    let (access, member, config) = match prepare(&state, user.id, guild_id, target_id).await? {
+    let (access, member, config) = match prepare(&state, lang, user.id, guild_id, target_id).await?
+    {
         Ok(prepared) => prepared,
         Err(response) => return Ok(response),
     };
 
     let username = form.username.trim();
     if username.is_empty() {
-        return Ok(refused("Enter a Minecraft username."));
+        return Ok(refused(lang.t("enter-username")));
     }
     let Some(profile) = hypixel::fetch_mojang_profile(&state.http_client, username).await? else {
-        return Ok(refused(format!(
-            "No Minecraft account is named {username}."
-        )));
+        return Ok(refused(tr!(lang, "unknown-account", name = username)));
     };
     let Some(player) =
         verification::player_for_proof(&state.hypixel, &profile.id, &member.user).await?
     else {
-        return Ok(refused(format!(
-            "{} has never joined Hypixel.",
-            profile.name
+        return Ok(refused(tr!(
+            lang,
+            "never-joined",
+            name = profile.name.as_str()
         )));
     };
     match player.discord.as_deref() {
         None => {
-            return Ok(refused(format!(
-                "{} has no Discord linked on Hypixel. Ask {} to link @{} in the game's \
-                 Social Media menu first.",
-                profile.name, member.user.name, member.user.name
+            return Ok(refused(tr!(
+                lang,
+                "no-discord-linked",
+                name = profile.name.as_str(),
+                member = member.user.name.as_str()
             )));
         }
         Some(linked) if !verification::is_same_user(&member.user, linked) => {
-            return Ok(refused(format!(
-                "{} is linked to the Discord {linked} on Hypixel, not to @{}.",
-                profile.name, member.user.name
+            return Ok(refused(tr!(
+                lang,
+                "linked-to-someone-else",
+                name = profile.name.as_str(),
+                linked = linked,
+                member = member.user.name.as_str()
             )));
         }
         Some(_) => {}
@@ -762,15 +780,19 @@ pub async fn admin_verify(
     {
         None => {}
         Some(Conflict::MemberLinked { minecraft_name }) => {
-            return Ok(refused(format!(
-                "@{} is already verified as {minecraft_name}. Remove their verification first.",
-                member.user.name
+            return Ok(refused(tr!(
+                lang,
+                "member-already-verified",
+                member = member.user.name.as_str(),
+                name = minecraft_name.as_str()
             )));
         }
         Some(Conflict::AccountLinked { name }) => {
-            return Ok(refused(format!(
-                "{} is already linked to another member ({name}).",
-                profile.name
+            return Ok(refused(tr!(
+                lang,
+                "account-taken",
+                name = profile.name.as_str(),
+                member = name.as_str()
             )));
         }
     }
@@ -783,14 +805,15 @@ pub async fn admin_verify(
         Ok(outcome) => {
             let notice = describe(
                 &state,
+                lang,
                 access.guild_id,
-                format!("Verified as {} by you.", profile.name),
+                tr!(lang, "notice-verified-by-you", name = profile.name.as_str()),
                 &outcome,
-                "Everything was already up to date.",
+                "notice-up-to-date",
             );
-            row_for(&state, access.guild_id, &member, &config, notice).await
+            row_for(&state, lang, access.guild_id, &member, &config, notice).await
         }
-        Err(Refused(reason)) => Ok(refused(reason)),
+        Err(Refused(reason)) => Ok(refused(lang.t(reason))),
     }
 }
 
@@ -810,15 +833,15 @@ fn check_hierarchy(
     let guild = state
         .cache
         .guild(access.guild_id)
-        .ok_or("The bot couldn't load this server.")?;
+        .ok_or(Refused("server-unavailable"))?;
     if guild.owner_id == target.user.id {
-        return Err("Only the server owner can remove their own verification.".into());
+        return Err(Refused("owner-only"));
     }
     let target_position = guild
         .member_highest_role(target)
         .map_or(0, |role| role.position);
     if target_position >= ceiling {
-        return Err("This member's highest role is at or above yours.".into());
+        return Err(Refused("member-above-you"));
     }
     Ok(())
 }
@@ -827,9 +850,11 @@ fn check_hierarchy(
 pub async fn unverify(
     State(state): State<Arc<AppState>>,
     LoggedIn(user): LoggedIn,
+    PanelLang(lang): PanelLang,
     Path((guild_id, target_id)): Path<(NonZeroU64, NonZeroU64)>,
 ) -> Result<Response, AppError> {
-    let (access, member, config) = match prepare(&state, user.id, guild_id, target_id).await? {
+    let (access, member, config) = match prepare(&state, lang, user.id, guild_id, target_id).await?
+    {
         Ok(prepared) => prepared,
         Err(response) => return Ok(response),
     };
@@ -838,7 +863,15 @@ pub async fn unverify(
         text,
     };
     if let Err(Refused(reason)) = check_hierarchy(&state, &access, &member, user.id) {
-        return row_for(&state, access.guild_id, &member, &config, error(reason)).await;
+        return row_for(
+            &state,
+            lang,
+            access.guild_id,
+            &member,
+            &config,
+            error(lang.t(reason)),
+        )
+        .await;
     }
 
     let outcome = verification::unverify_member(
@@ -852,10 +885,11 @@ pub async fn unverify(
     state.guild_members.remove(&access.guild_id);
     let notice = describe(
         &state,
+        lang,
         access.guild_id,
-        "Verification removed.".to_owned(),
+        lang.t("notice-removed"),
         &outcome,
-        "They had no verification roles left.",
+        "notice-no-roles-left",
     );
     // The fresh member reflects the removed roles, so the row shows them as not verified
     let member = state
@@ -863,7 +897,7 @@ pub async fn unverify(
         .get_member(access.guild_id, member.user.id)
         .await
         .unwrap_or(member);
-    row_for(&state, access.guild_id, &member, &config, notice).await
+    row_for(&state, lang, access.guild_id, &member, &config, notice).await
 }
 
 #[cfg(test)]

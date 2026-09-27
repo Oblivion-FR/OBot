@@ -1,4 +1,4 @@
-# Only what the build needs: sources, templates, static files, migrations and Cargo files
+# Only what the build needs: sources, templates, translations, static files, migrations and Cargo files
 target
 .git
 .github

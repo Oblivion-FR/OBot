@@ -10,9 +10,9 @@
   </td>
   <td class="col-minecraft">{% if let Some(name) = row.minecraft_name %}<code>{{ name }}</code>{% else %}<span class="hint">—</span>{% endif %}</td>
   <td class="col-status">
-    {% if row.status == "verified" %}<span class="badge ok">{% if row.forced %}Verified by admin{% else %}Verified{% endif %}</span>
-    {% else if row.status == "role" %}<span class="badge warn" title="Has the verified role but no linked Minecraft account, e.g. verified before accounts were stored">Role only</span>
-    {% else %}<span class="badge off">Not verified</span>{% endif %}
+    {% if row.status == "verified" %}<span class="badge ok">{% if row.forced %}{{ lang.t("status-verified-by-admin") }}{% else %}{{ lang.t("status-verified") }}{% endif %}</span>
+    {% else if row.status == "role" %}<span class="badge warn" title="{{ lang.t("status-role-only-hint") }}">{{ lang.t("status-role-only") }}</span>
+    {% else %}<span class="badge off">{{ lang.t("status-not-verified") }}</span>{% endif %}
   </td>
   <td class="col-joined hint">{{ row.joined }}</td>
   <td class="col-verified hint">{% if row.verified.is_empty() %}—{% else %}{{ row.verified }}{% endif %}</td>
@@ -20,22 +20,22 @@
   <td class="col-xp number">{% if row.xp.is_empty() %}<span class="hint">—</span>{% else %}{{ row.xp }}{% endif %}</td>
   <td class="actions">
     {% if !can_act %}
-    <span class="hint" title="Pick a verified role first">—</span>
+    <span class="hint" title="{{ lang.t("pick-verified-role-first") }}">—</span>
     {% else %}
     {% if row.status == "verified" %}
     <button class="btn small secondary" type="button"
             hx-post="/guilds/{{ guild_id }}/members/{{ row.id }}/reverify"
-            hx-target="closest tr" hx-swap="outerHTML" hx-disabled-elt="this">Re-verify</button>
+            hx-target="closest tr" hx-swap="outerHTML" hx-disabled-elt="this">{{ lang.t("reverify") }}</button>
     {% else %}
     <button class="btn small" type="button"
             data-verify-url="/guilds/{{ guild_id }}/members/{{ row.id }}/verify"
-            data-member-name="{{ row.name }}">Verify…</button>
+            data-member-name="{{ row.name }}">{{ lang.t("verify-member") }}</button>
     {% endif %}
     {% if row.status != "none" %}
     <button class="btn small danger" type="button"
             hx-post="/guilds/{{ guild_id }}/members/{{ row.id }}/unverify"
             hx-target="closest tr" hx-swap="outerHTML" hx-disabled-elt="this"
-            hx-confirm="Remove {{ row.name }}'s verification? Their verification and rule roles are removed and their nickname is reset.">Remove</button>
+            hx-confirm="{{ lang.t1("remove-confirm", "name", row.name.as_str()) }}">{{ lang.t("remove") }}</button>
     {% endif %}
     {% endif %}
   </td>

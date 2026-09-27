@@ -232,6 +232,24 @@ p { margin: 0; }
 .topbar-title .crumb { color: var(--muted); overflow: hidden; text-overflow: ellipsis; }
 .topbar-title .crumb-sep { color: var(--border); }
 
+.topbar-actions { display: flex; align-items: center; gap: 16px; }
+
+.lang-picker { display: inline-flex; padding: 2px; border: 1px solid var(--border); border-radius: 8px; }
+.lang-picker button {
+  padding: 4px 8px;
+  border: 0;
+  border-radius: 6px;
+  background: none;
+  color: var(--muted);
+  font: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.lang-picker button:hover { color: var(--text); }
+.lang-picker button.active { background: var(--accent-soft); color: var(--text); }
+.login-card .lang-picker { margin-top: 16px; }
+
 .user-menu { display: flex; align-items: center; gap: 10px; }
 .avatar { width: 32px; height: 32px; border-radius: 50%; background: var(--surface-2); }
 .user-name { font-weight: 500; }

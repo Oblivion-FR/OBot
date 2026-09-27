@@ -19,6 +19,6 @@ EXPOSE 8081
 
 # Only sources are watched: build output also holds `.rs` files, which would restart it forever
 CMD ["watchexec", "--restart", \
-     "--watch", "src", "--watch", "templates", "--watch", "static", "--watch", "migrations", \
+     "--watch", "src", "--watch", "templates", "--watch", "locales", "--watch", "static", "--watch", "migrations", \
      "--watch", "Cargo.toml", "--watch", "Cargo.lock", \
      "--", "cargo", "run", "--locked"]

@@ -152,8 +152,8 @@ jobs:
             $(printf "$IMAGE@sha256:%s " *)
           docker buildx imagetools inspect "$IMAGE:${{ matrix.environment }}"
 
-  # Standalone executables for each release: templates, static files and migrations are all
-  # built in, so one file is enough to run the bot
+  # Standalone executables for each release: templates, translations, static files and
+  # migrations are all built in, so one file is enough to run the bot
   binaries:
     if: startsWith(github.ref, 'refs/tags/v')
     needs: checks

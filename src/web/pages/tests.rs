@@ -6,6 +6,7 @@ fn shell() -> Shell {
             id: serenity::UserId::new(1),
             name: "admin".to_owned(),
             avatar_url: "https://cdn.example/avatar.png".to_owned(),
+            lang: None,
         },
         guilds: vec![
             guild(2, "Test <server>", None),
@@ -43,10 +44,11 @@ fn chip(name: &str) -> RoleChip {
 #[test]
 fn frame_renders_rail_and_sidebar() {
     let html = OverviewPage {
+        lang: Lang::En,
         shell: shell(),
         guild: guild(2, "Test <server>", None),
         section: "overview",
-        section_title: "Overview",
+        section_title: "nav-overview",
         error: None,
         verified_role: Some(chip("Verified")),
         hypixel_guild: None,
@@ -83,10 +85,11 @@ fn frame_renders_rail_and_sidebar() {
 #[test]
 fn verification_page_renders_roles_and_error() {
     let html = VerificationPage {
+        lang: Lang::En,
         shell: shell(),
         guild: guild(2, "Test", None),
         section: "verification",
-        section_title: "Verification",
+        section_title: "nav-verification",
         error: error_message("role_not_allowed"),
         roles: vec![role(10, "Admin", false), role(11, "Verified", true)],
         verified_role_id: Some(serenity::RoleId::new(11)),
@@ -131,6 +134,35 @@ fn verification_page_renders_roles_and_error() {
 }
 
 #[test]
+fn verification_page_renders_in_french() {
+    let html = VerificationPage {
+        lang: Lang::Fr,
+        shell: shell(),
+        guild: guild(2, "Test", None),
+        section: "verification",
+        section_title: "nav-verification",
+        error: error_message("role_not_allowed"),
+        roles: vec![role(11, "Verified", true)],
+        verified_role_id: Some(serenity::RoleId::new(11)),
+        unverified_role_id: None,
+        hypixel_guild: None,
+        guild_id: serenity::GuildId::new(2),
+        members: members::tests::sample_table(),
+    }
+    .render()
+    .expect("template renders");
+
+    assert!(html.contains(r#"<html lang="fr">"#));
+    assert!(html.contains("Vérification"));
+    assert!(html.contains("Tu ne peux choisir que des rôles en dessous de ton rôle le plus haut."));
+    assert!(html.contains("1 sur 2 vérifiés"));
+    assert!(html.contains("Vérifié par un admin"));
+    assert!(html.contains(
+        r#"<button type="submit" name="lang" value="fr" title="Français" class="active""#
+    ));
+}
+
+#[test]
 fn rules_page_renders_groups_rules_and_rank_dropdown() {
     let rule = |id, condition: &str, role: &str| RuleRow {
         id,
@@ -138,10 +170,11 @@ fn rules_page_renders_groups_rules_and_rank_dropdown() {
         role: chip(role),
     };
     let html = RulesPage {
+        lang: Lang::En,
         shell: shell(),
         guild: guild(2, "Test", None),
         section: "rules",
-        section_title: "Role rules",
+        section_title: "nav-rules",
         error: None,
         groups: vec![GroupRow {
             id: 7,
@@ -192,15 +225,16 @@ fn nickname_page_renders_fields_texts_and_preview() {
         ("Officer".to_owned(), "OFC".to_owned()),
     ]);
     let html = NicknamePage {
+        lang: Lang::En,
         shell: shell(),
         guild: guild(2, "Test", None),
         section: "nickname",
-        section_title: "Nickname",
+        section_title: "nav-nickname",
         error: None,
         nickname_enabled: true,
         nickname_separator: format.separator.clone(),
         nickname_rows: NicknameRow::from_format(&format),
-        value_tables: value_tables(&format, guild_ranks),
+        value_tables: value_tables(Lang::En, &format, guild_ranks),
         previews: previews(&format),
     }
     .render()
@@ -229,10 +263,11 @@ fn nickname_page_renders_fields_texts_and_preview() {
 #[test]
 fn value_tables_explain_a_missing_guild() {
     let tables = value_tables(
+        Lang::En,
         &NicknameFormat::default(),
-        Err("Link a Hypixel guild first."),
+        Err("texts-link-guild"),
     );
-    assert_eq!(tables[1].note, Some("Link a Hypixel guild first."));
+    assert_eq!(tables[1].note, Some("texts-link-guild"));
     assert!(tables[1].rows.is_empty());
 }
 

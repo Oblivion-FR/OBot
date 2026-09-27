@@ -51,6 +51,7 @@ pub enum NicknameChange {
     Reset,
     Skipped {
         nickname: String,
+        /// Message id of the reason, like `rename-owner`, translated where it's shown
         why: &'static str,
     },
 }
@@ -82,17 +83,17 @@ pub enum Record {
 }
 
 /// Discord never lets bots rename the server owner, nor members whose highest role is at or
-/// above the bot's. The error is shown to whoever triggered the verification.
+/// above the bot's. The error, a message id, is shown to whoever triggered the verification.
 fn can_rename(
     cache: &serenity::Cache,
     guild_id: serenity::GuildId,
     member: &serenity::Member,
 ) -> Result<(), &'static str> {
     let Some(guild) = cache.guild(guild_id) else {
-        return Err("the bot couldn't load this server");
+        return Err("rename-no-server");
     };
     if guild.owner_id == member.user.id {
-        return Err("bots can't rename the server owner");
+        return Err("rename-owner");
     }
     let bot_id = cache.current_user().id;
     // Without the bot's member in cache, let Discord decide
@@ -107,7 +108,7 @@ fn can_rename(
     if top_position(bot) > top_position(member) {
         Ok(())
     } else {
-        Err("their highest role is at or above the bot's")
+        Err("rename-role-too-high")
     }
 }
 
@@ -324,7 +325,7 @@ pub async fn sync_member(
                             eprintln!("Could not rename {user_id} in {guild_id}: {error}");
                             NicknameChange::Skipped {
                                 nickname,
-                                why: "the bot may be missing the Manage Nicknames permission",
+                                why: "rename-missing-permission",
                             }
                         }
                     }
@@ -445,7 +446,7 @@ pub async fn unverify_member(
                         );
                         NicknameChange::Skipped {
                             nickname: nickname.clone(),
-                            why: "the bot may be missing the Manage Nicknames permission",
+                            why: "rename-missing-permission",
                         }
                     }
                 }

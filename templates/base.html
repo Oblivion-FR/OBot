@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="en">
+<html lang="{{ lang.code() }}">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -8,7 +8,10 @@
   <script src="https://cdn.jsdelivr.net/npm/htmx.org@2.0.4/dist/htmx.min.js"></script>
   <script src="/static/app.js" defer></script>
 </head>
-<body hx-boost="true">
+<body hx-boost="true"
+      data-error-session-expired="{{ lang.t("error-session-expired") }}"
+      data-error-generic="{{ lang.t("error-generic") }}"
+      data-error-unreachable="{{ lang.t("error-unreachable") }}">
 {% block body %}{% endblock %}
 </body>
 </html>

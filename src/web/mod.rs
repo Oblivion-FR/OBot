@@ -43,6 +43,7 @@ pub fn router(state: AppState) -> Router {
         .route("/login", get(auth::login))
         .route("/callback", get(auth::callback))
         .route("/logout", post(auth::logout))
+        .route("/lang", post(auth::set_lang))
         .route("/static/app.css", get(stylesheet))
         .route("/static/app.js", get(script))
         .route("/guilds/{guild_id}", get(pages::overview))
@@ -336,7 +337,12 @@ impl AppState {
             .collect()
     }
 
-    fn role_chip(&self, guild_id: serenity::GuildId, role_id: serenity::RoleId) -> RoleChip {
+    fn role_chip(
+        &self,
+        lang: crate::i18n::Lang,
+        guild_id: serenity::GuildId,
+        role_id: serenity::RoleId,
+    ) -> RoleChip {
         let role = self.cache.guild(guild_id).and_then(|guild| {
             guild
                 .roles
@@ -353,7 +359,7 @@ impl AppState {
                 },
             },
             None => RoleChip {
-                name: "deleted role".to_owned(),
+                name: lang.t("deleted-role"),
                 color: "var(--danger)".to_owned(),
             },
         }

@@ -1,24 +1,24 @@
 {% extends "shell.html" %}
-{% block title %}Servers · OBot{% endblock %}
+{% block title %}{{ lang.t("home-title") }} · OBot{% endblock %}
 {% block app_class %} no-sidebar{% endblock %}
-{% block topbar_title %}<strong>Servers</strong>{% endblock %}
+{% block topbar_title %}<strong>{{ lang.t("home-title") }}</strong>{% endblock %}
 {% block content %}
 <div class="page-header">
-  <h1>Welcome back, {{ shell.user.name }}</h1>
-  <p>Pick a server to configure. Only servers where OBot is and you can manage roles are listed.</p>
+  <h1>{{ lang.t1("home-welcome", "name", shell.user.name.as_str()) }}</h1>
+  <p>{{ lang.t("home-intro") }}</p>
 </div>
 <div class="grid">
   {% for guild in shell.guilds %}
   <a class="card server-card" href="/guilds/{{ guild.id }}">
     <span class="guild-icon large">{% if let Some(icon) = guild.icon_url.as_deref() %}<img src="{{ icon }}" alt="">{% else %}{{ guild.initials }}{% endif %}</span>
     <strong>{{ guild.name }}</strong>
-    <span class="stat-link">Configure →</span>
+    <span class="stat-link">{{ lang.t("home-configure") }}</span>
   </a>
   {% endfor %}
   <a class="card server-card add" href="{{ shell.invite_url }}" target="_blank" rel="noopener" hx-boost="false">
     <span class="guild-icon large">+</span>
-    <strong>Add OBot to a server</strong>
-    <span class="hint">Opens Discord's invite screen</span>
+    <strong>{{ lang.t("home-add") }}</strong>
+    <span class="hint">{{ lang.t("home-add-hint") }}</span>
   </a>
 </div>
 {% endblock %}

@@ -3,6 +3,7 @@ mod commands;
 mod config;
 mod env_files;
 mod hypixel;
+mod i18n;
 mod nickname;
 mod resync;
 mod verification;
@@ -73,18 +74,21 @@ async fn main() -> Result<(), Error> {
         .map(|id| parse_id("GUILD_ID", &id).map(serenity::GuildId::from))
         .transpose()?;
     let resync_every = resync::interval(optional_env("RESYNC_INTERVAL_HOURS"))?;
+    i18n::check()?;
 
     let db = config::connect(&database_url).await?;
     let http = reqwest::Client::new();
     let hypixel = Arc::new(hypixel::Hypixel::new(http.clone(), hypixel_api_key));
 
+    let mut commands = vec![
+        commands::healthcheck(),
+        commands::version(),
+        commands::verify(),
+    ];
+    i18n::localize_commands(&mut commands);
     let framework = poise::Framework::builder()
         .options(poise::FrameworkOptions {
-            commands: vec![
-                commands::healthcheck(),
-                commands::version(),
-                commands::verify(),
-            ],
+            commands,
             ..Default::default()
         })
         .setup({

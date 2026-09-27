@@ -1,13 +1,14 @@
 {% extends "base.html" %}
 {% import "icons.html" as icons %}
-{% block title %}Log in · OBot{% endblock %}
+{% block title %}{{ lang.t("login-title") }} · OBot{% endblock %}
 {% block body %}
 <main class="login">
   <div class="card login-card">
     <div class="logo">{% call icons::logo() %}{% endcall %}</div>
-    <h1>OBot dashboard</h1>
-    <p class="hint">Configure verification, role rules and nicknames for your servers. You need Administrator, or Manage Server and Manage Roles.</p>
-    <a class="btn large" href="/login" hx-boost="false">{% call icons::discord() %}{% endcall %} Log in with Discord</a>
+    <h1>{{ lang.t("login-heading") }}</h1>
+    <p class="hint">{{ lang.t("login-intro") }}</p>
+    <a class="btn large" href="/login" hx-boost="false">{% call icons::discord() %}{% endcall %} {{ lang.t("login-button") }}</a>
+    {% include "lang_picker.html" %}
   </div>
   {% include "version_footer.html" %}
 </main>

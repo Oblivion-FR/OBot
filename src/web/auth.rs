@@ -1,18 +1,23 @@
-use axum::extract::{FromRequestParts, Query, State};
+use axum::extract::{Form, FromRequestParts, Query, State};
 use axum::http::request::Parts;
+use axum::http::{HeaderMap, header};
 use axum::response::{IntoResponse, Redirect, Response};
 use axum_extra::extract::CookieJar;
 use axum_extra::extract::cookie::{Cookie, SameSite};
 use poise::serenity_prelude as serenity;
 use serde::Deserialize;
 use std::collections::HashMap;
+use std::convert::Infallible;
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
 use super::{AppError, AppState};
+use crate::i18n::Lang;
 
 const SESSION_COOKIE: &str = "obot_session";
 const STATE_COOKIE: &str = "obot_oauth_state";
+/// The language picked in the panel
+const LANG_COOKIE: &str = "obot_lang";
 const SESSION_TTL: Duration = Duration::from_secs(7 * 24 * 3600);
 
 #[derive(Clone)]
@@ -20,6 +25,8 @@ pub struct User {
     pub id: serenity::UserId,
     pub name: String,
     pub avatar_url: String,
+    /// Language of the Discord account, when OBot speaks it
+    pub lang: Option<Lang>,
 }
 
 struct Session {
@@ -106,6 +113,70 @@ impl FromRequestParts<Arc<AppState>> for LoggedIn {
     }
 }
 
+/// The panel's language: the one picked in the panel, else the Discord account's, else the
+/// browser's, else English
+pub struct PanelLang(pub Lang);
+
+impl FromRequestParts<Arc<AppState>> for PanelLang {
+    type Rejection = Infallible;
+
+    async fn from_request_parts(
+        parts: &mut Parts,
+        state: &Arc<AppState>,
+    ) -> Result<Self, Self::Rejection> {
+        let jar = CookieJar::from_headers(&parts.headers);
+        let picked = jar
+            .get(LANG_COOKIE)
+            .and_then(|cookie| Lang::from_tag(cookie.value()));
+        let account = || {
+            jar.get(SESSION_COOKIE)
+                .and_then(|cookie| state.sessions.get(cookie.value()))
+                .and_then(|user| user.lang)
+        };
+        let browser = || {
+            parts
+                .headers
+                .get(header::ACCEPT_LANGUAGE)
+                .and_then(|value| value.to_str().ok())
+                .and_then(|value| value.split(',').find_map(Lang::from_tag))
+        };
+        Ok(PanelLang(
+            picked.or_else(account).or_else(browser).unwrap_or_default(),
+        ))
+    }
+}
+
+#[derive(Deserialize)]
+pub struct LangForm {
+    lang: String,
+}
+
+/// Remembers the picked language and goes back to the page it was picked on
+pub async fn set_lang(
+    State(state): State<Arc<AppState>>,
+    jar: CookieJar,
+    headers: HeaderMap,
+    Form(form): Form<LangForm>,
+) -> impl IntoResponse {
+    // Only back to a page of the panel, never to another site
+    let back = headers
+        .get(header::REFERER)
+        .and_then(|referer| referer.to_str().ok())
+        .and_then(|referer| referer.strip_prefix(state.oauth.public_url.as_str()))
+        .filter(|path| path.starts_with('/') && !path.starts_with("//"))
+        .unwrap_or("/")
+        .to_owned();
+    let jar = match Lang::from_tag(&form.lang) {
+        Some(lang) => {
+            let mut cookie = state.oauth.cookie(LANG_COOKIE, lang.code().to_owned());
+            cookie.set_max_age(cookie::time::Duration::days(365));
+            jar.add(cookie)
+        }
+        None => jar,
+    };
+    (jar, Redirect::to(&back))
+}
+
 pub struct MaybeLoggedIn(pub Option<User>);
 
 impl FromRequestParts<Arc<AppState>> for MaybeLoggedIn {
@@ -161,6 +232,8 @@ struct DiscordUser {
     id: serenity::UserId,
     username: String,
     global_name: Option<String>,
+    /// The Discord account's language, like `fr` or `en-US`
+    locale: Option<String>,
     avatar: Option<String>,
 }
 
@@ -226,6 +299,7 @@ pub async fn callback(
     let session = state.sessions.create(User {
         id: discord_user.id,
         avatar_url: discord_user.avatar_url(),
+        lang: discord_user.locale.as_deref().and_then(Lang::from_tag),
         name: discord_user.global_name.unwrap_or(discord_user.username),
     });
     let jar = jar.add(oauth.cookie(SESSION_COOKIE, session));

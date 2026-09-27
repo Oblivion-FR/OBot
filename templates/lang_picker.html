@@ -1,0 +1,5 @@
+<form method="post" action="/lang" class="lang-picker" role="group" aria-label="{{ lang.t("language") }}" hx-boost="false">
+  {% for option in crate::i18n::Lang::ALL %}
+  <button type="submit" name="lang" value="{{ option.code() }}" title="{{ option.name() }}"{% if option == lang %} class="active" aria-current="true"{% endif %}>{{ option.code()|upper }}</button>
+  {% endfor %}
+</form>

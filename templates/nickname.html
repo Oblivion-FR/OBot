@@ -1,8 +1,8 @@
 {% extends "guild_shell.html" %}
 {% block page %}
 <div class="page-header">
-  <h1>Nickname</h1>
-  <p>Rename members on /verify from their Hypixel profile.</p>
+  <h1>{{ lang.t("nav-nickname") }}</h1>
+  <p>{{ lang.t("nickname-intro") }}</p>
 </div>
 
 <form class="stack" method="post" action="/guilds/{{ guild.id }}/nickname">
@@ -10,11 +10,11 @@
     <div class="card-header">
       <label class="switch">
         <input type="checkbox" name="nickname_enabled"{% if nickname_enabled %} checked{% endif %}>
-        <span>Rename members on /verify</span>
+        <span>{{ lang.t("nickname-enabled") }}</span>
       </label>
     </div>
     <div class="form-grid">
-      <label class="field">Separator between fields
+      <label class="field">{{ lang.t("separator") }}
         <input name="separator" value="{{ nickname_separator }}" maxlength="5">
       </label>
     </div>
@@ -23,24 +23,25 @@
   <section class="card">
     <div class="card-header">
       <div>
-        <h2>Fields</h2>
-        <p class="hint">Fields without a value (no rank, not in the guild) are skipped with their prefix and suffix. Above 32 characters, the highest importance number is dropped first.</p>
+        <h2>{{ lang.t("fields") }}</h2>
+        <p class="hint">{{ lang.t("fields-hint") }}</p>
       </div>
     </div>
     <div class="table-scroll">
       <table class="segments">
         <thead>
-          <tr><th>Show</th><th>Field</th><th>Order</th><th>Prefix</th><th>Suffix</th><th>Importance</th></tr>
+          <tr><th>{{ lang.t("field-show") }}</th><th>{{ lang.t("field") }}</th><th>{{ lang.t("field-order") }}</th><th>{{ lang.t("field-prefix") }}</th><th>{{ lang.t("field-suffix") }}</th><th>{{ lang.t("field-importance") }}</th></tr>
         </thead>
         <tbody>
           {% for row in nickname_rows %}
+          {% let label = lang.t(row.label) %}
           <tr>
-            <td><label class="switch compact"><input type="checkbox" name="{{ row.key }}_enabled" aria-label="Show {{ row.label }}"{% if row.enabled %} checked{% endif %}></label></td>
-            <td>{{ row.label }}</td>
-            <td><input type="number" name="{{ row.key }}_position" value="{{ row.position }}" min="1" max="9" aria-label="{{ row.label }} order"></td>
-            <td><input name="{{ row.key }}_prefix" value="{{ row.prefix }}" maxlength="8" aria-label="{{ row.label }} prefix"></td>
-            <td><input name="{{ row.key }}_suffix" value="{{ row.suffix }}" maxlength="8" aria-label="{{ row.label }} suffix"></td>
-            <td><input type="number" name="{{ row.key }}_importance" value="{{ row.importance }}" min="1" max="9" aria-label="{{ row.label }} importance"></td>
+            <td><label class="switch compact"><input type="checkbox" name="{{ row.key }}_enabled" aria-label="{{ lang.t("field-show") }} {{ label }}"{% if row.enabled %} checked{% endif %}></label></td>
+            <td>{{ label }}</td>
+            <td><input type="number" name="{{ row.key }}_position" value="{{ row.position }}" min="1" max="9" aria-label="{{ label }} · {{ lang.t("field-order") }}"></td>
+            <td><input name="{{ row.key }}_prefix" value="{{ row.prefix }}" maxlength="8" aria-label="{{ label }} · {{ lang.t("field-prefix") }}"></td>
+            <td><input name="{{ row.key }}_suffix" value="{{ row.suffix }}" maxlength="8" aria-label="{{ label }} · {{ lang.t("field-suffix") }}"></td>
+            <td><input type="number" name="{{ row.key }}_importance" value="{{ row.importance }}" min="1" max="9" aria-label="{{ label }} · {{ lang.t("field-importance") }}"></td>
           </tr>
           {% endfor %}
         </tbody>
@@ -51,19 +52,19 @@
   <section class="card">
     <div class="card-header">
       <div>
-        <h2>Texts per rank</h2>
-        <p class="hint">Change the prefix, label or suffix of a single rank, like <code>★MVP++★</code>. Untouched parts follow the field's defaults above; an emptied part shows nothing. Ranks without a label are skipped.</p>
+        <h2>{{ lang.t("texts-per-rank") }}</h2>
+        <p class="hint">{{ lang.t("texts-per-rank-hint") }}</p>
       </div>
     </div>
     {% for table in value_tables %}
-    <h3 class="value-table-title">{{ table.title }}</h3>
+    <h3 class="value-table-title">{{ lang.t(table.title) }}</h3>
     {% if let Some(note) = table.note %}
-    <p class="hint">{{ note }}</p>
+    <p class="hint">{{ lang.t(note) }}</p>
     {% else %}
     <div class="table-scroll">
       <table class="segments value-texts">
         <thead>
-          <tr><th>Rank</th><th>Prefix</th><th>Label</th><th>Suffix</th><th><span class="visually-hidden">Custom</span></th></tr>
+          <tr><th>{{ lang.t("rank") }}</th><th>{{ lang.t("field-prefix") }}</th><th>{{ lang.t("label") }}</th><th>{{ lang.t("field-suffix") }}</th><th><span class="visually-hidden">{{ lang.t("custom") }}</span></th></tr>
         </thead>
         <tbody>
           {% for row in table.rows %}
@@ -75,10 +76,10 @@
               <input type="hidden" name="text_{{ table.key }}_{{ loop.index0 }}_default_label" value="{{ row.default_label }}">
               <input type="hidden" name="text_{{ table.key }}_{{ loop.index0 }}_default_suffix" value="{{ row.default_suffix }}">
             </td>
-            <td><input name="text_{{ table.key }}_{{ loop.index0 }}_prefix" value="{{ row.prefix }}" maxlength="8" aria-label="{{ row.name }} prefix"></td>
-            <td><input class="wide" name="text_{{ table.key }}_{{ loop.index0 }}_label" value="{{ row.label }}" maxlength="32" placeholder="none" aria-label="{{ row.name }} label"></td>
-            <td><input name="text_{{ table.key }}_{{ loop.index0 }}_suffix" value="{{ row.suffix }}" maxlength="8" aria-label="{{ row.name }} suffix"></td>
-            <td>{% if row.custom %}<span class="badge ok">Custom</span>{% endif %}</td>
+            <td><input name="text_{{ table.key }}_{{ loop.index0 }}_prefix" value="{{ row.prefix }}" maxlength="8" aria-label="{{ row.name }} · {{ lang.t("field-prefix") }}"></td>
+            <td><input class="wide" name="text_{{ table.key }}_{{ loop.index0 }}_label" value="{{ row.label }}" maxlength="32" placeholder="{{ lang.t("label-none") }}" aria-label="{{ row.name }} · {{ lang.t("label") }}"></td>
+            <td><input name="text_{{ table.key }}_{{ loop.index0 }}_suffix" value="{{ row.suffix }}" maxlength="8" aria-label="{{ row.name }} · {{ lang.t("field-suffix") }}"></td>
+            <td>{% if row.custom %}<span class="badge ok">{{ lang.t("custom") }}</span>{% endif %}</td>
           </tr>
           {% endfor %}
         </tbody>
@@ -91,8 +92,8 @@
   <section class="card">
     <div class="card-header">
       <div>
-        <h2>Preview</h2>
-        <p class="hint">Updates as you edit. "Longest" has every field at its maximum length.</p>
+        <h2>{{ lang.t("preview") }}</h2>
+        <p class="hint">{{ lang.t("preview-hint") }}</p>
       </div>
     </div>
     <div hx-post="/guilds/{{ guild.id }}/nickname/preview"
@@ -100,7 +101,7 @@
          hx-include="closest form">
       {% include "nickname_preview.html" %}
     </div>
-    <div class="card-footer"><button class="btn" type="submit">Save nickname</button></div>
+    <div class="card-footer"><button class="btn" type="submit">{{ lang.t("save-nickname") }}</button></div>
   </section>
 </form>
 {% endblock %}

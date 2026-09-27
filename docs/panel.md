@@ -9,6 +9,12 @@ on every page, so losing the permission on Discord also removes panel access.
 Like on Discord itself, you can only pick roles below your own highest role (the server owner has
 no limit). Otherwise the verified role could be used to give yourself a role you can't assign.
 
+## Language
+
+The panel is in English and French. It follows your Discord language at login, or your browser's;
+the **EN / FR** buttons in the top bar (or on the login page) switch it and remember the choice
+on that browser. Slash command replies follow the language of each member's Discord client.
+
 ## How verification works
 
 A member runs `/verify <minecraft name>`. OBot checks that the Discord account linked in that

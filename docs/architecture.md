@@ -21,6 +21,7 @@ cache and HTTP client, and the Hypixel client.
 | [`env_files`](../src/env_files/mod.rs)       | Loads `.env` files for the current mode (`OBOT_ENV`)                                      |
 | [`config`](../src/config.rs)                 | Database access: server settings, rules, nickname format, verified members                |
 | [`cache`](../src/cache.rs)                   | Small time-limited cache used by the panel and the Hypixel client                         |
+| [`i18n`](../src/i18n/mod.rs)                 | Translations of the panel and the commands, from the Fluent files in `locales/`           |
 | [`web`](../src/web/mod.rs)                   | Panel router, shared state, access checks                                                 |
 | [`web::auth`](../src/web/auth.rs)            | Discord OAuth2 login and sessions                                                         |
 | [`web::pages`](../src/web/pages/mod.rs)      | Panel pages and their forms                                                               |
@@ -33,6 +34,12 @@ from [`templates/`](../templates), which are checked at compile time. [htmx](htt
 makes links and forms update the page without full reloads, and swaps single table rows after
 member actions. [`static/app.css`](../static/app.css) and [`static/app.js`](../static/app.js)
 are built into the binary.
+
+Texts are [Fluent](https://projectfluent.org) messages from [`locales/`](../locales), one folder
+per language, built into the binary. Templates translate message ids with `lang.t(...)`; the
+panel language comes from the `obot_lang` cookie set by the language picker, then the Discord
+account's language, then the browser's, then English. Commands reply in the language of the
+member's Discord client, and their descriptions are registered in every language.
 
 Sessions are kept in memory, so restarting the bot logs everyone out. Access to a server is
 checked against Discord on every request; only the server list in the side bar is cached, for a

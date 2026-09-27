@@ -34,13 +34,19 @@
 // A re-verified row comes back with a fresh notice row, drop the previous one first
 const dropNotice = (row) => document.querySelector(`tr[data-for="${row.id}"]`)?.remove();
 
-const SESSION_EXPIRED = "Your session expired, reload the page to log in again.";
+// Error messages come translated from the page, with English as a fallback
+const MESSAGES = document.body.dataset;
+const SESSION_EXPIRED =
+  MESSAGES.errorSessionExpired ?? "Your session expired, reload the page to log in again.";
+const GENERIC_ERROR = MESSAGES.errorGeneric ?? "Something went wrong, check the bot logs.";
+const UNREACHABLE = MESSAGES.errorUnreachable ?? "Couldn't reach the panel, try again.";
 
-// Only plain text errors come from the panel itself, anything else would be a whole page
+// Plain text client errors are the panel's translated refusals. Anything else would be a whole
+// page, or a server error only described in English.
 const errorText = (response, text) =>
-  (response.headers.get("content-type") ?? "").startsWith("text/plain") && text
+  response.status < 500 && (response.headers.get("content-type") ?? "").startsWith("text/plain") && text
     ? text
-    : "Something went wrong, check the bot logs.";
+    : GENERIC_ERROR;
 
 const showRowError = (row, text) => {
   dropNotice(row);
@@ -65,8 +71,8 @@ document.addEventListener("htmx:beforeSwap", (event) => {
   if (event.detail.xhr.status >= 400) {
     event.detail.shouldSwap = false;
     const xhr = event.detail.xhr;
-    const plain = (xhr.getResponseHeader("content-type") ?? "").startsWith("text/plain");
-    showRowError(target, plain && xhr.responseText ? xhr.responseText : "Something went wrong, check the bot logs.");
+    const plain = xhr.status < 500 && (xhr.getResponseHeader("content-type") ?? "").startsWith("text/plain");
+    showRowError(target, plain && xhr.responseText ? xhr.responseText : GENERIC_ERROR);
     return;
   }
   dropNotice(target);
@@ -75,7 +81,7 @@ document.addEventListener("htmx:beforeSwap", (event) => {
 document.addEventListener("htmx:sendError", (event) => {
   const target = event.detail.target;
   if (target instanceof HTMLTableRowElement && target.id) {
-    showRowError(target, "Couldn't reach the panel, try again.");
+    showRowError(target, UNREACHABLE);
   }
 });
 
@@ -135,7 +141,7 @@ document.addEventListener("htmx:sendError", (event) => {
       }
       dialog.close();
     } catch {
-      error.textContent = "Couldn't reach the panel, try again.";
+      error.textContent = UNREACHABLE;
     } finally {
       submit.disabled = false;
     }

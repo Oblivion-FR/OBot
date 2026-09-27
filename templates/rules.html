@@ -1,50 +1,50 @@
 {% extends "guild_shell.html" %}
 {% import "icons.html" as icons %}
 
-{% macro rule_item(rule, guild_id) %}
+{% macro rule_item(rule, guild_id, lang) %}
 <li>
   <span>{{ rule.condition }}</span>
   <span class="rule-arrow" aria-hidden="true">→</span>
   <span class="role-chip"><span class="role-dot" style="--role-color: {{ rule.role.color }}"></span>{{ rule.role.name }}</span>
   <form method="post" action="/guilds/{{ guild_id }}/rules/{{ rule.id }}/delete">
-    <button class="icon-button danger" type="submit" title="Delete rule" aria-label="Delete rule">{% call icons::trash() %}{% endcall %}</button>
+    <button class="icon-button danger" type="submit" title="{{ lang.t("delete-rule") }}" aria-label="{{ lang.t("delete-rule") }}">{% call icons::trash() %}{% endcall %}</button>
   </form>
 </li>
 {% endmacro %}
 
 {% block page %}
 <div class="page-header">
-  <h1>Role rules</h1>
-  <p>Checked on each /verify: a rule's role is given when it matches and removed when it doesn't. A group's separator role is given while any of its rules matches.</p>
+  <h1>{{ lang.t("nav-rules") }}</h1>
+  <p>{{ lang.t("rules-intro") }}</p>
 </div>
 
 <div class="stack">
   <section class="card">
     <div class="card-header">
       <div>
-        <h2>Rules</h2>
-        <p class="hint">{{ rule_count }} rule{% if rule_count != 1 %}s{% endif %}{% if !groups.is_empty() %} in {{ groups.len() }} group{% if groups.len() != 1 %}s{% endif %}{% endif %}</p>
+        <h2>{{ lang.t("rules") }}</h2>
+        <p class="hint">{{ lang.t1("rules-summary", "count", *rule_count) }}{% if !groups.is_empty() %} {{ lang.t1("rules-in-groups", "groups", groups.len()) }}{% endif %}</p>
       </div>
     </div>
     {% if rule_count == 0 && groups.is_empty() %}
-    <p class="empty">No rules yet. Add one below.</p>
+    <p class="empty">{{ lang.t("rules-empty") }}</p>
     {% endif %}
 
     {% for group in groups %}
     <div class="rule-group">
       <div class="rule-group-header">
         <strong>{{ group.name }}</strong>
-        <span class="hint">separator</span>
+        <span class="hint">{{ lang.t("group-separator") }}</span>
         <span class="role-chip"><span class="role-dot" style="--role-color: {{ group.separator.color }}"></span>{{ group.separator.name }}</span>
-        <form method="post" action="/guilds/{{ guild.id }}/groups/{{ group.id }}/delete" hx-confirm="Delete the group {{ group.name }}? Its rules are kept, without a group.">
-          <button class="icon-button danger" type="submit" title="Delete group" aria-label="Delete group {{ group.name }}">{% call icons::trash() %}{% endcall %}</button>
+        <form method="post" action="/guilds/{{ guild.id }}/groups/{{ group.id }}/delete" hx-confirm="{{ lang.t1("delete-group-confirm", "name", group.name.as_str()) }}">
+          <button class="icon-button danger" type="submit" title="{{ lang.t("delete-group") }}" aria-label="{{ lang.t("delete-group") }} {{ group.name }}">{% call icons::trash() %}{% endcall %}</button>
         </form>
       </div>
       {% if group.rules.is_empty() %}
-      <p class="hint rule-group-empty">No rules in this group yet: its separator is never given.</p>
+      <p class="hint rule-group-empty">{{ lang.t("group-empty") }}</p>
       {% else %}
       <ul class="rule-list">
-        {% for rule in group.rules %}{% call rule_item(rule, guild.id) %}{% endcall %}{% endfor %}
+        {% for rule in group.rules %}{% call rule_item(rule, guild.id, lang) %}{% endcall %}{% endfor %}
       </ul>
       {% endif %}
     </div>
@@ -52,9 +52,9 @@
 
     {% if !ungrouped.is_empty() %}
     <div class="rule-group">
-      {% if !groups.is_empty() %}<div class="rule-group-header"><strong>No group</strong></div>{% endif %}
+      {% if !groups.is_empty() %}<div class="rule-group-header"><strong>{{ lang.t("no-group") }}</strong></div>{% endif %}
       <ul class="rule-list">
-        {% for rule in ungrouped %}{% call rule_item(rule, guild.id) %}{% endcall %}{% endfor %}
+        {% for rule in ungrouped %}{% call rule_item(rule, guild.id, lang) %}{% endcall %}{% endfor %}
       </ul>
     </div>
     {% endif %}
@@ -63,61 +63,61 @@
   <form class="card rule-form" method="post" action="/guilds/{{ guild.id }}/rules">
     <div class="card-header">
       <div>
-        <h2>Add a rule</h2>
-        <p class="hint">{% if hypixel_guild.is_none() %}Link a Hypixel guild in Verification to use guild conditions.{% else %}Guild conditions use {{ hypixel_guild.as_deref().unwrap_or_default() }}.{% endif %}</p>
+        <h2>{{ lang.t("add-rule") }}</h2>
+        <p class="hint">{% if let Some(guild_name) = hypixel_guild %}{{ lang.t1("add-rule-guild", "guild", guild_name.as_str()) }}{% else %}{{ lang.t("add-rule-no-guild") }}{% endif %}</p>
       </div>
     </div>
     <div class="form-grid">
-      <label class="field">When
+      <label class="field">{{ lang.t("rule-when") }}
         <select name="kind">
-          <option value="hypixel_rank">Hypixel rank is</option>
-          <option value="guild_member">Member of the Hypixel guild</option>
-          <option value="guild_rank">Guild rank is</option>
+          <option value="hypixel_rank">{{ lang.t("rule-kind-hypixel-rank") }}</option>
+          <option value="guild_member">{{ lang.t("rule-kind-guild-member") }}</option>
+          <option value="guild_rank">{{ lang.t("rule-kind-guild-rank") }}</option>
         </select>
       </label>
-      <label class="field for-hypixel-rank">Hypixel rank
+      <label class="field for-hypixel-rank">{{ lang.t("hypixel-rank") }}
         <select name="rank">
-          {% for (key, label) in ranks %}<option value="{{ key }}">{{ label }}</option>{% endfor %}
+          {% for (key, label) in ranks %}<option value="{{ key }}">{% if key == &crate::hypixel::NO_RANK %}{{ lang.t("rank-no-rank") }}{% else %}{{ label }}{% endif %}</option>{% endfor %}
         </select>
       </label>
-      <label class="field for-guild-rank">Guild rank
+      <label class="field for-guild-rank">{{ lang.t("guild-rank") }}
         <select name="guild_rank"{% if guild_ranks.is_empty() %} disabled{% endif %}>
           {% for rank in guild_ranks %}
           <option value="{{ rank }}">{{ rank }}</option>
           {% else %}
-          <option value="">{% if guild_ranks_error %}Couldn't load ranks from Hypixel{% else if hypixel_guild.is_none() %}Link a Hypixel guild first{% else %}No ranks found{% endif %}</option>
+          <option value="">{% if guild_ranks_error %}{{ lang.t("guild-ranks-unavailable") }}{% else if hypixel_guild.is_none() %}{{ lang.t("guild-ranks-link-first") }}{% else %}{{ lang.t("guild-ranks-none") }}{% endif %}</option>
           {% endfor %}
         </select>
       </label>
-      <label class="field">Give role
+      <label class="field">{{ lang.t("give-role") }}
         <select name="role_id">
           {% for role in roles %}
           <option value="{{ role.id }}"{% if !role.assignable %} disabled{% endif %}>@{{ role.name }}</option>
           {% endfor %}
         </select>
       </label>
-      <label class="field">Group
+      <label class="field">{{ lang.t("group") }}
         <select name="group_id">
-          <option value="">No group</option>
+          <option value="">{{ lang.t("no-group") }}</option>
           {% for group in groups %}<option value="{{ group.id }}">{{ group.name }}</option>{% endfor %}
         </select>
       </label>
     </div>
-    <div class="card-footer"><button class="btn" type="submit">{% call icons::plus() %}{% endcall %} Add rule</button></div>
+    <div class="card-footer"><button class="btn" type="submit">{% call icons::plus() %}{% endcall %} {{ lang.t("add-rule-button") }}</button></div>
   </form>
 
   <form class="card" method="post" action="/guilds/{{ guild.id }}/groups">
     <div class="card-header">
       <div>
-        <h2>Add a group</h2>
-        <p class="hint">Groups rules under a separator role, like <code>━━ Ranks ━━</code> placed above the rank roles. Members get the separator while any rule of the group matches.</p>
+        <h2>{{ lang.t("add-group") }}</h2>
+        <p class="hint">{{ lang.t("add-group-hint") }}</p>
       </div>
     </div>
     <div class="form-grid">
-      <label class="field">Name
-        <input name="name" maxlength="50" placeholder="e.g. Ranks" required>
+      <label class="field">{{ lang.t("group-name") }}
+        <input name="name" maxlength="50" placeholder="{{ lang.t("group-name-placeholder") }}" required>
       </label>
-      <label class="field">Separator role
+      <label class="field">{{ lang.t("separator-role") }}
         <select name="separator_role_id">
           {% for role in roles %}
           <option value="{{ role.id }}"{% if !role.assignable %} disabled{% endif %}>@{{ role.name }}</option>
@@ -125,7 +125,7 @@
         </select>
       </label>
     </div>
-    <div class="card-footer"><button class="btn" type="submit">{% call icons::plus() %}{% endcall %} Add group</button></div>
+    <div class="card-footer"><button class="btn" type="submit">{% call icons::plus() %}{% endcall %} {{ lang.t("add-group-button") }}</button></div>
   </form>
 </div>
 {% endblock %}

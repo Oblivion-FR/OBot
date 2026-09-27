@@ -21,6 +21,9 @@ services:
           path: ./templates
           target: /app/templates
         - action: sync
+          path: ./locales
+          target: /app/locales
+        - action: sync
           path: ./static
           target: /app/static
         - action: sync

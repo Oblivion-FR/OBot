@@ -2,74 +2,74 @@
 {% import "icons.html" as icons %}
 {% block page %}
 <div class="page-header">
-  <h1>Overview</h1>
-  <p>How verification is set up on {{ guild.name }}.</p>
+  <h1>{{ lang.t("nav-overview") }}</h1>
+  <p>{{ lang.t1("overview-intro", "server", guild.name.as_str()) }}</p>
 </div>
 
 <div class="grid">
   <a class="card stat-card" href="/guilds/{{ guild.id }}/verification">
     <div class="stat-top">
       <span class="icon-bubble">{% call icons::verification() %}{% endcall %}</span>
-      {% if verified_role.is_some() %}<span class="badge ok">Active</span>{% else %}<span class="badge warn">Not set up</span>{% endif %}
+      {% if verified_role.is_some() %}<span class="badge ok">{{ lang.t("badge-active") }}</span>{% else %}<span class="badge warn">{{ lang.t("badge-not-set-up") }}</span>{% endif %}
     </div>
-    <h2>Verification</h2>
+    <h2>{{ lang.t("overview-verification") }}</h2>
     {% if let Some(role) = verified_role %}
     <div><span class="role-chip"><span class="role-dot" style="--role-color: {{ role.color }}"></span>{{ role.name }}</span></div>
-    <p class="hint">Given on /verify</p>
+    <p class="hint">{{ lang.t("overview-verified-role-hint") }}</p>
     {% else %}
-    <p class="hint">Pick a verified role to enable /verify.</p>
+    <p class="hint">{{ lang.t("overview-no-verified-role") }}</p>
     {% endif %}
-    <span class="stat-link">Configure →</span>
+    <span class="stat-link">{{ lang.t("overview-configure") }}</span>
   </a>
 
   <a class="card stat-card" href="/guilds/{{ guild.id }}/verification">
     <div class="stat-top">
       <span class="icon-bubble">{% call icons::guild() %}{% endcall %}</span>
-      {% if hypixel_guild.is_some() %}<span class="badge ok">Linked</span>{% else %}<span class="badge off">Not linked</span>{% endif %}
+      {% if hypixel_guild.is_some() %}<span class="badge ok">{{ lang.t("badge-linked") }}</span>{% else %}<span class="badge off">{{ lang.t("badge-not-linked") }}</span>{% endif %}
     </div>
-    <h2>Hypixel guild</h2>
+    <h2>{{ lang.t("overview-hypixel-guild") }}</h2>
     {% if let Some(name) = hypixel_guild %}
     <span class="stat-value">{{ name }}</span>
     {% else %}
-    <p class="hint">Link one to use guild rules and tags.</p>
+    <p class="hint">{{ lang.t("overview-no-guild") }}</p>
     {% endif %}
-    <span class="stat-link">Configure →</span>
+    <span class="stat-link">{{ lang.t("overview-configure") }}</span>
   </a>
 
   <a class="card stat-card" href="/guilds/{{ guild.id }}/rules">
     <div class="stat-top">
       <span class="icon-bubble">{% call icons::rules() %}{% endcall %}</span>
-      {% if rule_count > 0 %}<span class="badge ok">{{ rule_count }} active</span>{% else %}<span class="badge off">None</span>{% endif %}
+      {% if rule_count > 0 %}<span class="badge ok">{{ lang.t1("badge-rules-active", "count", *rule_count) }}</span>{% else %}<span class="badge off">{{ lang.t("badge-none") }}</span>{% endif %}
     </div>
-    <h2>Role rules</h2>
-    <span class="stat-value">{{ rule_count }} rule{% if rule_count != 1 %}s{% endif %}</span>
-    <p class="hint">Roles given from Hypixel rank and guild.</p>
-    <span class="stat-link">Manage →</span>
+    <h2>{{ lang.t("overview-rules") }}</h2>
+    <span class="stat-value">{{ lang.t1("overview-rule-count", "count", *rule_count) }}</span>
+    <p class="hint">{{ lang.t("overview-rules-hint") }}</p>
+    <span class="stat-link">{{ lang.t("overview-manage") }}</span>
   </a>
 
   <a class="card stat-card" href="/guilds/{{ guild.id }}/nickname">
     <div class="stat-top">
       <span class="icon-bubble">{% call icons::nickname() %}{% endcall %}</span>
-      {% if nickname_enabled %}<span class="badge ok">On</span>{% else %}<span class="badge off">Off</span>{% endif %}
+      {% if nickname_enabled %}<span class="badge ok">{{ lang.t("badge-on") }}</span>{% else %}<span class="badge off">{{ lang.t("badge-off") }}</span>{% endif %}
     </div>
-    <h2>Nickname</h2>
+    <h2>{{ lang.t("overview-nickname") }}</h2>
     <div><code>{{ nickname_example }}</code></div>
-    <p class="hint">Example of a renamed member.</p>
-    <span class="stat-link">Configure →</span>
+    <p class="hint">{{ lang.t("overview-nickname-hint") }}</p>
+    <span class="stat-link">{{ lang.t("overview-configure") }}</span>
   </a>
 </div>
 
 <div class="card" style="margin-top: 16px">
   <div class="card-header">
     <div>
-      <h2>How members verify</h2>
-      <p class="hint">What to tell your members.</p>
+      <h2>{{ lang.t("overview-how-title") }}</h2>
+      <p class="hint">{{ lang.t("overview-how-hint") }}</p>
     </div>
   </div>
   <ol class="hint" style="margin: 0; padding-left: 20px; display: grid; gap: 6px">
-    <li>On Hypixel, open the profile menu → Social Media → Discord, and enter their Discord username.</li>
-    <li>In this server, run <code>/verify</code> with their Minecraft name.</li>
-    <li>OBot checks the link, then updates their roles{% if nickname_enabled %} and nickname{% endif %}.</li>
+    <li>{{ lang.t("overview-how-link") }}</li>
+    <li>{{ lang.t("overview-how-verify") }}</li>
+    <li>{% if nickname_enabled %}{{ lang.t("overview-how-roles-nickname") }}{% else %}{{ lang.t("overview-how-roles") }}{% endif %}</li>
   </ol>
 </div>
 {% endblock %}

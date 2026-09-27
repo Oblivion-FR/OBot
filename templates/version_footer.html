@@ -3,7 +3,7 @@
   {% if let Some(url) = crate::version::commit_url() -%}
   (<a href="{{ url }}" target="_blank" rel="noopener" hx-boost="false">{{ crate::version::COMMIT }}</a>)
   {%- else -%}
-  ({{ crate::version::COMMIT }})
+  ({{ lang.t("unknown-commit") }})
   {%- endif %}
-  · <a href="{{ crate::version::REPOSITORY }}" target="_blank" rel="noopener" hx-boost="false">Source</a>
+  · <a href="{{ crate::version::REPOSITORY }}" target="_blank" rel="noopener" hx-boost="false">{{ lang.t("footer-source") }}</a>
 </footer>

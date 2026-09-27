@@ -8,11 +8,12 @@ use std::collections::HashMap;
 use std::num::NonZeroU64;
 use std::sync::Arc;
 
-use super::auth::{LoggedIn, MaybeLoggedIn, User};
+use super::auth::{LoggedIn, MaybeLoggedIn, PanelLang, User};
 use super::members::{self, MembersTable};
 use super::{Access, AppError, AppState, GuildSummary, RoleChip, RoleOption, Shell};
 use crate::config::{self, HypixelGuildLink, RuleKind};
 use crate::hypixel;
+use crate::i18n::{Lang, tr};
 use crate::nickname::{self, Field, NicknameFormat};
 
 fn render(template: impl Template) -> Result<Response, AppError> {
@@ -21,21 +22,26 @@ fn render(template: impl Template) -> Result<Response, AppError> {
 
 #[derive(Template)]
 #[template(path = "login.html")]
-struct LoginPage;
+struct LoginPage {
+    lang: Lang,
+}
 
 #[derive(Template)]
 #[template(path = "home.html")]
 struct HomePage {
+    lang: Lang,
     shell: Shell,
 }
 
 pub async fn home(
     State(state): State<Arc<AppState>>,
     MaybeLoggedIn(user): MaybeLoggedIn,
+    PanelLang(lang): PanelLang,
 ) -> Result<Response, AppError> {
     match user {
-        None => render(LoginPage),
+        None => render(LoginPage { lang }),
         Some(user) => render(HomePage {
+            lang,
             shell: state.shell(user, None).await,
         }),
     }
@@ -80,16 +86,17 @@ pub struct PageParams {
     error: Option<String>,
 }
 
+/// Message id of an error code passed back in the query string
 fn error_message(code: &str) -> Option<&'static str> {
     Some(match code {
-        "guild_not_found" => "No Hypixel guild has this name.",
-        "no_hypixel_guild" => "Link a Hypixel guild before adding guild rules.",
-        "missing_value" => "This rule needs a value.",
-        "unknown_guild_rank" => "This rank doesn't exist in the Hypixel guild anymore.",
-        "guild_ranks_unavailable" => "Couldn't load the guild ranks from Hypixel, try again later.",
-        "role_not_allowed" => "You can only pick roles below your highest role.",
-        "missing_group_name" => "A group needs a name.",
-        "unknown_group" => "This group doesn't exist anymore.",
+        "guild_not_found" => "error-guild-not-found",
+        "no_hypixel_guild" => "error-no-hypixel-guild",
+        "missing_value" => "error-missing-value",
+        "unknown_guild_rank" => "error-unknown-guild-rank",
+        "guild_ranks_unavailable" => "error-guild-ranks-unavailable",
+        "role_not_allowed" => "error-role-not-allowed",
+        "missing_group_name" => "error-missing-group-name",
+        "unknown_group" => "error-unknown-group",
         _ => return None,
     })
 }
@@ -108,9 +115,11 @@ fn section_redirect(guild_id: serenity::GuildId, section: &str, error: Option<&s
 #[derive(Template)]
 #[template(path = "overview.html")]
 struct OverviewPage {
+    lang: Lang,
     shell: Shell,
     guild: GuildSummary,
     section: &'static str,
+    /// Message id
     section_title: &'static str,
     error: Option<&'static str>,
     verified_role: Option<RoleChip>,
@@ -123,6 +132,7 @@ struct OverviewPage {
 pub async fn overview(
     State(state): State<Arc<AppState>>,
     LoggedIn(user): LoggedIn,
+    PanelLang(lang): PanelLang,
     Path(guild_id): Path<NonZeroU64>,
 ) -> Result<Response, AppError> {
     let ctx = or_respond!(guild_context(&state, user, guild_id).await);
@@ -132,14 +142,15 @@ pub async fn overview(
     let nickname_format = config::get_nickname_format(&state.db, guild_id).await?;
 
     render(OverviewPage {
+        lang,
         shell: ctx.shell,
         guild: ctx.guild,
         section: "overview",
-        section_title: "Overview",
+        section_title: "nav-overview",
         error: None,
         verified_role: config
             .verified_role_id
-            .map(|role| state.role_chip(guild_id, role)),
+            .map(|role| state.role_chip(lang, guild_id, role)),
         hypixel_guild: config.hypixel_guild.map(|link| link.name),
         rule_count: rules.len(),
         nickname_enabled: nickname_format.enabled,
@@ -156,9 +167,11 @@ pub async fn overview(
 #[derive(Template)]
 #[template(path = "verification.html")]
 struct VerificationPage {
+    lang: Lang,
     shell: Shell,
     guild: GuildSummary,
     section: &'static str,
+    /// Message id
     section_title: &'static str,
     error: Option<&'static str>,
     roles: Vec<RoleOption>,
@@ -179,6 +192,7 @@ pub struct VerificationParams {
 pub async fn verification(
     State(state): State<Arc<AppState>>,
     LoggedIn(user): LoggedIn,
+    PanelLang(lang): PanelLang,
     Path(guild_id): Path<NonZeroU64>,
     Query(params): Query<VerificationParams>,
     cookies: CookieJar,
@@ -194,11 +208,12 @@ pub async fn verification(
     let members = members::table(&state, guild_id, &config, params.table, hidden).await?;
 
     render(VerificationPage {
+        lang,
         roles: state.role_options(&ctx.access),
         shell: ctx.shell,
         guild: ctx.guild,
         section: "verification",
-        section_title: "Verification",
+        section_title: "nav-verification",
         error: params.error.as_deref().and_then(error_message),
         verified_role_id: config.verified_role_id,
         unverified_role_id: config.unverified_role_id,
@@ -301,9 +316,11 @@ struct GroupRow {
 #[derive(Template)]
 #[template(path = "rules.html")]
 struct RulesPage {
+    lang: Lang,
     shell: Shell,
     guild: GuildSummary,
     section: &'static str,
+    /// Message id
     section_title: &'static str,
     error: Option<&'static str>,
     groups: Vec<GroupRow>,
@@ -320,6 +337,7 @@ struct RulesPage {
 pub async fn rules(
     State(state): State<Arc<AppState>>,
     LoggedIn(user): LoggedIn,
+    PanelLang(lang): PanelLang,
     Path(guild_id): Path<NonZeroU64>,
     Query(params): Query<PageParams>,
 ) -> Result<Response, AppError> {
@@ -342,14 +360,16 @@ pub async fn rules(
     let row = |rule: &config::Rule| RuleRow {
         id: rule.id,
         condition: match rule.kind {
-            RuleKind::HypixelRank if rule.value == hypixel::NO_RANK => "No Hypixel rank".to_owned(),
-            RuleKind::HypixelRank => {
-                format!("Hypixel rank is {}", hypixel::rank_label(&rule.value))
-            }
-            RuleKind::GuildMember => "Member of the Hypixel guild".to_owned(),
-            RuleKind::GuildRank => format!("Guild rank is {}", rule.value),
+            RuleKind::HypixelRank if rule.value == hypixel::NO_RANK => lang.t("condition-no-rank"),
+            RuleKind::HypixelRank => tr!(
+                lang,
+                "condition-hypixel-rank",
+                rank = hypixel::rank_label(&rule.value)
+            ),
+            RuleKind::GuildMember => lang.t("condition-guild-member"),
+            RuleKind::GuildRank => tr!(lang, "condition-guild-rank", rank = rule.value.as_str()),
         },
-        role: state.role_chip(guild_id, rule.role_id),
+        role: state.role_chip(lang, guild_id, rule.role_id),
     };
     let rows_in = |group_id: Option<i64>| {
         rules
@@ -363,7 +383,7 @@ pub async fn rules(
         .map(|group| GroupRow {
             id: group.id,
             name: group.name.clone(),
-            separator: state.role_chip(guild_id, group.separator_role_id),
+            separator: state.role_chip(lang, guild_id, group.separator_role_id),
             rules: rows_in(Some(group.id)),
         })
         .collect();
@@ -378,11 +398,12 @@ pub async fn rules(
         .collect();
 
     render(RulesPage {
+        lang,
         roles: state.role_options(&ctx.access),
         shell: ctx.shell,
         guild: ctx.guild,
         section: "rules",
-        section_title: "Role rules",
+        section_title: "nav-rules",
         error: params.error.as_deref().and_then(error_message),
         groups: group_rows,
         ungrouped,
@@ -528,6 +549,7 @@ pub async fn delete_group(
 
 struct NicknameRow {
     key: &'static str,
+    /// Message id
     label: &'static str,
     position: usize,
     enabled: bool,
@@ -573,15 +595,17 @@ struct ValueRow {
 
 struct ValueTable {
     key: &'static str,
+    /// Message id
     title: &'static str,
-    /// Why the table has no rows
+    /// Message id of why the table has no rows
     note: Option<&'static str>,
     rows: Vec<ValueRow>,
 }
 
 /// The per value texts of the Hypixel rank and guild rank fields. `guild_ranks` are the linked
-/// guild's ranks with their tag, or why there are none.
+/// guild's ranks with their tag, or the message id of why there are none.
 fn value_tables(
+    lang: Lang,
     format: &NicknameFormat,
     guild_ranks: Result<Vec<(String, String)>, &'static str>,
 ) -> Vec<ValueTable> {
@@ -589,8 +613,11 @@ fn value_tables(
         .iter()
         .map(|&(key, label)| {
             // Players without a rank show nothing unless given a label
-            let default_label = if key == hypixel::NO_RANK { "" } else { label };
-            (key.to_owned(), label.to_owned(), default_label.to_owned())
+            if key == hypixel::NO_RANK {
+                (key.to_owned(), lang.t("rank-no-rank"), String::new())
+            } else {
+                (key.to_owned(), label.to_owned(), label.to_owned())
+            }
         })
         .collect();
     let (guild_values, guild_note) = match guild_ranks {
@@ -605,8 +632,18 @@ fn value_tables(
     };
 
     [
-        (Field::HypixelRank, "Hypixel ranks", hypixel_ranks, None),
-        (Field::GuildRankTag, "Guild ranks", guild_values, guild_note),
+        (
+            Field::HypixelRank,
+            "texts-hypixel-ranks",
+            hypixel_ranks,
+            None,
+        ),
+        (
+            Field::GuildRankTag,
+            "texts-guild-ranks",
+            guild_values,
+            guild_note,
+        ),
     ]
     .into_iter()
     .map(|(field, title, values, note)| {
@@ -649,15 +686,13 @@ fn value_tables(
     .collect()
 }
 
-/// The linked guild's ranks with their tag, highest first
+/// The linked guild's ranks with their tag, highest first, or the message id of why there are none
 async fn guild_rank_tags(
     state: &AppState,
     guild_id: serenity::GuildId,
 ) -> Result<Result<Vec<(String, String)>, &'static str>, AppError> {
     let Some(link) = config::get_config(&state.db, guild_id).await?.hypixel_guild else {
-        return Ok(Err(
-            "Link a Hypixel guild in Verification to customize its ranks.",
-        ));
+        return Ok(Err("texts-link-guild"));
     };
     Ok(match state.hypixel.guild(&link.id).await {
         Ok(Some(guild)) => Ok(guild
@@ -668,15 +703,16 @@ async fn guild_rank_tags(
                 (name, tag)
             })
             .collect()),
-        Ok(None) => Err("The linked Hypixel guild doesn't exist anymore."),
+        Ok(None) => Err("texts-guild-gone"),
         Err(error) => {
             eprintln!("Could not load Hypixel guild {}: {error}", link.id);
-            Err("Couldn't load the guild's ranks from Hypixel, try again later.")
+            Err("texts-guild-unavailable")
         }
     })
 }
 
 struct Preview {
+    /// Message id
     label: &'static str,
     nickname: String,
 }
@@ -691,14 +727,14 @@ impl Preview {
 fn previews(format: &NicknameFormat) -> Vec<Preview> {
     let samples = [
         (
-            "Example",
+            "preview-example",
             ("MVP_PLUS", "MVP+"),
             "Notch",
             ("Officer", "OFC"),
             "OBOT",
         ),
         (
-            "Longest",
+            "preview-longest",
             ("SUPERSTAR", "MVP++"),
             "Sixteen_Chars_Ok",
             ("Elite", "ELITE"),
@@ -730,9 +766,11 @@ fn previews(format: &NicknameFormat) -> Vec<Preview> {
 #[derive(Template)]
 #[template(path = "nickname.html")]
 struct NicknamePage {
+    lang: Lang,
     shell: Shell,
     guild: GuildSummary,
     section: &'static str,
+    /// Message id
     section_title: &'static str,
     error: Option<&'static str>,
     nickname_enabled: bool,
@@ -745,12 +783,14 @@ struct NicknamePage {
 #[derive(Template)]
 #[template(path = "nickname_preview.html")]
 struct PreviewFragment {
+    lang: Lang,
     previews: Vec<Preview>,
 }
 
 pub async fn nickname(
     State(state): State<Arc<AppState>>,
     LoggedIn(user): LoggedIn,
+    PanelLang(lang): PanelLang,
     Path(guild_id): Path<NonZeroU64>,
 ) -> Result<Response, AppError> {
     let ctx = or_respond!(guild_context(&state, user, guild_id).await);
@@ -758,15 +798,16 @@ pub async fn nickname(
     let guild_ranks = guild_rank_tags(&state, ctx.access.guild_id).await?;
 
     render(NicknamePage {
+        lang,
         shell: ctx.shell,
         guild: ctx.guild,
         section: "nickname",
-        section_title: "Nickname",
+        section_title: "nav-nickname",
         error: None,
         nickname_enabled: format.enabled,
         nickname_separator: format.separator.clone(),
         nickname_rows: NicknameRow::from_format(&format),
-        value_tables: value_tables(&format, guild_ranks),
+        value_tables: value_tables(lang, &format, guild_ranks),
         previews: previews(&format),
     })
 }
@@ -864,11 +905,13 @@ pub async fn save_nickname(
 pub async fn preview_nickname(
     State(state): State<Arc<AppState>>,
     LoggedIn(user): LoggedIn,
+    PanelLang(lang): PanelLang,
     Path(guild_id): Path<NonZeroU64>,
     Form(form): Form<HashMap<String, String>>,
 ) -> Result<Response, AppError> {
     or_respond!(state.authorize(guild_id, &user).await);
     render(PreviewFragment {
+        lang,
         previews: previews(&parse_nickname_form(&form)),
     })
 }

@@ -1,91 +1,91 @@
 {% extends "guild_shell.html" %}
 {% block page %}
 <div class="page-header">
-  <h1>Verification</h1>
-  <p>What /verify gives and removes, and which Hypixel guild counts for guild rules.</p>
+  <h1>{{ lang.t("nav-verification") }}</h1>
+  <p>{{ lang.t("verification-intro") }}</p>
 </div>
 
 <div class="stack">
   <form class="card" method="post" action="/guilds/{{ guild.id }}/roles">
     <div class="card-header">
       <div>
-        <h2>Verification roles</h2>
-        <p class="hint">Greyed out roles are above the bot's or your highest role.</p>
+        <h2>{{ lang.t("verification-roles") }}</h2>
+        <p class="hint">{{ lang.t("verification-roles-hint") }}</p>
       </div>
     </div>
     <div class="form-grid">
-      <label class="field">Verified role (given)
+      <label class="field">{{ lang.t("verified-role") }}
         <select name="verified_role_id">
-          <option value="">None: /verify disabled</option>
+          <option value="">{{ lang.t("verified-role-none") }}</option>
           {% for role in roles %}
           <option value="{{ role.id }}"{% if verified_role_id.as_ref() == Some(role.id) %} selected{% endif %}{% if !role.assignable %} disabled{% endif %}>@{{ role.name }}</option>
           {% endfor %}
         </select>
       </label>
-      <label class="field">Unverified role (removed)
+      <label class="field">{{ lang.t("unverified-role") }}
         <select name="unverified_role_id">
-          <option value="">None</option>
+          <option value="">{{ lang.t("role-none") }}</option>
           {% for role in roles %}
           <option value="{{ role.id }}"{% if unverified_role_id.as_ref() == Some(role.id) %} selected{% endif %}{% if !role.assignable %} disabled{% endif %}>@{{ role.name }}</option>
           {% endfor %}
         </select>
       </label>
     </div>
-    <div class="card-footer"><button class="btn" type="submit">Save roles</button></div>
+    <div class="card-footer"><button class="btn" type="submit">{{ lang.t("save-roles") }}</button></div>
   </form>
 
   <form class="card" method="post" action="/guilds/{{ guild.id }}/hypixel-guild">
     <div class="card-header">
       <div>
-        <h2>Hypixel guild</h2>
-        <p class="hint">Needed for guild member and guild rank rules, and for guild tags in nicknames. Leave empty to unlink.</p>
+        <h2>{{ lang.t("hypixel-guild") }}</h2>
+        <p class="hint">{{ lang.t("hypixel-guild-hint") }}</p>
       </div>
-      {% if hypixel_guild.is_some() %}<span class="badge ok">Linked</span>{% else %}<span class="badge off">Not linked</span>{% endif %}
+      {% if hypixel_guild.is_some() %}<span class="badge ok">{{ lang.t("badge-linked") }}</span>{% else %}<span class="badge off">{{ lang.t("badge-not-linked") }}</span>{% endif %}
     </div>
-    <label class="field">Guild name
-      <input name="name" value="{% if let Some(name) = hypixel_guild %}{{ name }}{% endif %}" placeholder="Not linked">
+    <label class="field">{{ lang.t("guild-name") }}
+      <input name="name" value="{% if let Some(name) = hypixel_guild %}{{ name }}{% endif %}" placeholder="{{ lang.t("guild-not-linked") }}">
     </label>
-    <div class="card-footer"><button class="btn" type="submit">Save guild</button></div>
+    <div class="card-footer"><button class="btn" type="submit">{{ lang.t("save-guild") }}</button></div>
   </form>
 
   <section class="card" id="members">
     <div class="card-header">
       <div>
-        <h2>Members</h2>
-        {% if members.error.is_none() %}<p class="hint">{{ members.verified_count }} of {{ members.total }} verified{% if !members.search.is_empty() %} · {{ members.matching }} matching{% endif %}</p>{% endif %}
+        <h2>{{ lang.t("members") }}</h2>
+        {% if members.error.is_none() %}<p class="hint">{{ lang.t2("members-count", "verified", members.verified_count, "total", members.total) }}{% if !members.search.is_empty() %} · {{ lang.t1("members-matching", "count", members.matching) }}{% endif %}</p>{% endif %}
       </div>
     </div>
     {% if let Some(error) = members.error %}
-    <p class="empty">{{ error }}</p>
+    <p class="empty">{{ lang.t(error) }}</p>
     {% else %}
     <form class="table-toolbar" method="get" action="/guilds/{{ guild_id }}/verification#members" role="search">
       {% if let Some((field, dir)) = members.sort %}
       <input type="hidden" name="sort" value="{{ field }}">
       <input type="hidden" name="dir" value="{{ dir }}">
       {% endif %}
-      <label class="field search">Search
-        <input type="search" name="q" value="{{ members.search }}" placeholder="Discord or Minecraft name, then Enter">
+      <label class="field search">{{ lang.t("search") }}
+        <input type="search" name="q" value="{{ members.search }}" placeholder="{{ lang.t("search-placeholder") }}">
       </label>
       <details class="column-menu">
-        <summary class="btn secondary">Columns</summary>
-        <div class="menu" role="group" aria-label="Visible columns">
+        <summary class="btn secondary">{{ lang.t("columns") }}</summary>
+        <div class="menu" role="group" aria-label="{{ lang.t("visible-columns") }}">
           {% for header in members.headers %}{% if header.key != "name" %}
-          <label class="check"><input type="checkbox" data-column-toggle="{{ header.key }}"{% if !header.hidden %} checked{% endif %}> {{ header.label }}</label>
+          <label class="check"><input type="checkbox" data-column-toggle="{{ header.key }}"{% if !header.hidden %} checked{% endif %}> {{ lang.t(header.label) }}</label>
           {% endif %}{% endfor %}
         </div>
       </details>
     </form>
-    {% if let Some(note) = members.guild_note %}<p class="hint table-note">{{ note }}</p>{% endif %}
+    {% if let Some(note) = members.guild_note %}<p class="hint table-note">{{ lang.t(note) }}</p>{% endif %}
     <div class="table-scroll">
       <table class="members {{ members.hidden_classes }}">
         <thead>
           <tr>
             {% for header in members.headers %}
             <th class="col-{{ header.key }}" aria-sort="{{ header.aria }}">
-              <a class="sort-link{% if header.aria != "none" %} sorted{% endif %}" href="{{ header.url }}">{{ header.label }}<span class="sort-arrow" aria-hidden="true">{{ header.arrow }}</span></a>
+              <a class="sort-link{% if header.aria != "none" %} sorted{% endif %}" href="{{ header.url }}">{{ lang.t(header.label) }}<span class="sort-arrow" aria-hidden="true">{{ header.arrow }}</span></a>
             </th>
             {% endfor %}
-            <th><span class="visually-hidden">Actions</span></th>
+            <th><span class="visually-hidden">{{ lang.t("column-actions") }}</span></th>
           </tr>
         </thead>
         <tbody>
@@ -93,16 +93,16 @@
           {% for row in members.rows %}
           {% include "member_row.html" %}
           {% else %}
-          <tr><td colspan="8" class="empty">No member matches.</td></tr>
+          <tr><td colspan="8" class="empty">{{ lang.t("no-member-matches") }}</td></tr>
           {% endfor %}
         </tbody>
       </table>
     </div>
     {% if members.pages > 1 %}
-    <nav class="pagination" aria-label="Member pages">
-      {% if let Some(url) = members.prev_url %}<a class="btn small secondary" href="{{ url }}">← Previous</a>{% else %}<span></span>{% endif %}
-      <span class="hint">Page {{ members.page }} of {{ members.pages }}</span>
-      {% if let Some(url) = members.next_url %}<a class="btn small secondary" href="{{ url }}">Next →</a>{% else %}<span></span>{% endif %}
+    <nav class="pagination" aria-label="{{ lang.t("member-pages") }}">
+      {% if let Some(url) = members.prev_url %}<a class="btn small secondary" href="{{ url }}">{{ lang.t("page-previous") }}</a>{% else %}<span></span>{% endif %}
+      <span class="hint">{{ lang.t2("page-of", "page", members.page, "pages", members.pages) }}</span>
+      {% if let Some(url) = members.next_url %}<a class="btn small secondary" href="{{ url }}">{{ lang.t("page-next") }}</a>{% else %}<span></span>{% endif %}
     </nav>
     {% endif %}
     {% endif %}
@@ -111,15 +111,15 @@
 
 <dialog class="dialog" id="verify-dialog" aria-labelledby="verify-title">
   <form method="dialog" id="verify-form">
-    <h2 id="verify-title">Verify <span data-member-name></span></h2>
-    <p class="hint">Same check as /verify: the Minecraft account must have this member's Discord linked on Hypixel. Roles and nickname are then applied for them.</p>
-    <label class="field">Minecraft username
+    <h2 id="verify-title">{{ lang.t("verify") }} <span data-member-name></span></h2>
+    <p class="hint">{{ lang.t("verify-dialog-hint") }}</p>
+    <label class="field">{{ lang.t("minecraft-username") }}
       <input name="username" autocomplete="off" required maxlength="16" pattern="[A-Za-z0-9_]{1,16}">
     </label>
     <p class="form-error" data-form-error role="alert"></p>
     <div class="card-footer">
-      <button class="btn secondary" type="button" value="cancel" data-close>Cancel</button>
-      <button class="btn" type="submit">Verify</button>
+      <button class="btn secondary" type="button" value="cancel" data-close>{{ lang.t("cancel") }}</button>
+      <button class="btn" type="submit">{{ lang.t("verify") }}</button>
     </div>
   </form>
 </dialog>

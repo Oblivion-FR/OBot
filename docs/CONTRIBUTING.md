@@ -92,6 +92,22 @@ CI then publishes `production-vX.Y.Z` and `development-vX.Y.Z`, which Portainer 
 release with the patch notes, the image tags and the binaries. A tag with a `-`, like
 `v0.3.0-rc.1`, becomes a pre-release. The bot's status and `/version` show the new version.
 
+## Translations
+
+Texts shown to users live in [`locales/`](../locales): `commands.ftl` for the slash commands,
+`panel.ftl` for the panel, in one folder per language. English (`en`) is the source; a message
+missing from another language falls back to it. `cargo test` fails when a language lacks a
+message English has, or when a file doesn't parse.
+
+- **Changing a text**: edit it in every language. Keep the `{ $variable }` names.
+- **New text**: add the message to every language, then use it with `lang.t("id")` in templates,
+  or `tr!(lang, "id", name = value)` in Rust. Plurals use Fluent selectors, see
+  `badge-rules-active`.
+- **Command descriptions** are `command-<name>-description`, and
+  `command-<name>-<parameter>(-description)` for parameters. Command names stay in English.
+- **New language**: add its folder, then its variant to `Lang` in
+  [`src/i18n/mod.rs`](../src/i18n/mod.rs) with its code, name, Discord locales and files.
+
 ## Code conventions
 
 - **Tests** live next to the module they test, in a `tests.rs` file declared with

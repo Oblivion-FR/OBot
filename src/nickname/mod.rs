@@ -35,12 +35,13 @@ impl Field {
             .find(|candidate| candidate.as_str() == field)
     }
 
+    /// Message id of the field's name in the panel
     pub fn label(self) -> &'static str {
         match self {
-            Self::HypixelRank => "Hypixel rank",
-            Self::Ign => "Minecraft name",
-            Self::GuildRankTag => "Guild rank tag",
-            Self::GuildTag => "Guild tag",
+            Self::HypixelRank => "field-hypixel-rank",
+            Self::Ign => "field-ign",
+            Self::GuildRankTag => "field-guild-rank-tag",
+            Self::GuildTag => "field-guild-tag",
         }
     }
 
