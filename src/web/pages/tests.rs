@@ -1,0 +1,204 @@
+use super::*;
+
+fn shell() -> Shell {
+    Shell {
+        user: User {
+            id: serenity::UserId::new(1),
+            name: "admin".to_owned(),
+            avatar_url: "https://cdn.example/avatar.png".to_owned(),
+        },
+        guilds: vec![
+            guild(2, "Test <server>", None),
+            guild(3, "With Icon", Some("https://cdn.example/icon.png")),
+        ],
+        current: Some(serenity::GuildId::new(2)),
+        invite_url: "https://discord.com/oauth2/authorize?client_id=9".to_owned(),
+    }
+}
+
+fn guild(id: u64, name: &str, icon_url: Option<&str>) -> GuildSummary {
+    GuildSummary {
+        id: serenity::GuildId::new(id),
+        name: name.to_owned(),
+        icon_url: icon_url.map(str::to_owned),
+        initials: super::super::initials(name),
+    }
+}
+
+fn role(id: u64, name: &str, assignable: bool) -> RoleOption {
+    RoleOption {
+        id: serenity::RoleId::new(id),
+        name: name.to_owned(),
+        assignable,
+    }
+}
+
+fn chip(name: &str) -> RoleChip {
+    RoleChip {
+        name: name.to_owned(),
+        color: "#3ba55d".to_owned(),
+    }
+}
+
+#[test]
+fn frame_renders_rail_and_sidebar() {
+    let html = OverviewPage {
+        shell: shell(),
+        guild: guild(2, "Test <server>", None),
+        section: "overview",
+        section_title: "Overview",
+        error: None,
+        verified_role: Some(chip("Verified")),
+        hypixel_guild: None,
+        rule_count: 1,
+        nickname_enabled: true,
+        nickname_example: "[MVP+] Notch [OFC]".to_owned(),
+    }
+    .render()
+    .expect("template renders");
+
+    assert!(
+        html.contains(r#"data-tooltip="Test &#60;server&#62;""#),
+        "names are escaped"
+    );
+    assert!(html.contains(r#"class="rail-item active" data-tooltip="Test &#60;server&#62;""#));
+    assert!(html.contains(r#"<img src="https://cdn.example/icon.png" alt="">"#));
+    assert!(
+        html.contains("\n      Ts\n    </a>"),
+        "initials without an icon"
+    );
+    assert!(html.contains(r#"class="active" aria-current="page""#));
+    assert!(html.contains("https://cdn.example/avatar.png"));
+    assert!(html.contains("1 rule<"));
+    assert!(html.contains("[MVP+] Notch [OFC]"));
+}
+
+#[test]
+fn verification_page_renders_roles_and_error() {
+    let html = VerificationPage {
+        shell: shell(),
+        guild: guild(2, "Test", None),
+        section: "verification",
+        section_title: "Verification",
+        error: error_message("role_not_allowed"),
+        roles: vec![role(10, "Admin", false), role(11, "Verified", true)],
+        verified_role_id: Some(serenity::RoleId::new(11)),
+        unverified_role_id: None,
+        hypixel_guild: Some("My Guild".to_owned()),
+        guild_id: serenity::GuildId::new(2),
+        members: members::tests::sample_table(),
+    }
+    .render()
+    .expect("template renders");
+
+    assert!(html.contains(r#"<option value="11" selected>@Verified</option>"#));
+    assert!(html.contains(r#"<option value="10" disabled>@Admin</option>"#));
+    assert!(html.contains(r#"value="My Guild""#));
+    assert!(html.contains("You can only pick roles below your highest role."));
+
+    assert!(html.contains("1 of 2 verified"));
+    assert!(html.contains(r#"<th class="col-name" aria-sort="ascending">"#));
+    assert!(html.contains(r#"<input type="hidden" name="dir" value="asc">"#));
+    assert!(html.contains(r#"hx-post="/guilds/2/members/20/reverify""#));
+    assert!(html.contains("Verified by admin"));
+    assert!(html.contains(r#"data-verify-url="/guilds/2/members/21/verify""#));
+    assert!(html.contains(r#"class="notice-row notice-warn" data-for="member-21""#));
+    assert!(
+        html.contains(r#"href="/guilds/2/verification?sort=name&#38;dir=asc&#38;page=2#members""#)
+    );
+    assert!(html.contains(r#"id="verify-dialog""#));
+    assert!(html.contains(r#"<table class="members hide-xp">"#));
+    assert!(html.contains(r#"<th class="col-xp" aria-sort="none">"#));
+    assert!(
+        html.contains(r#"data-column-toggle="xp">"#),
+        "xp starts unchecked"
+    );
+    assert!(html.contains(r#"data-column-toggle="verified" checked>"#));
+    assert!(html.contains(r#"<td class="col-xp number">1,234,567</td>"#));
+    assert!(html.contains(r#"<td class="col-guild_joined hint">2024-07-03</td>"#));
+    assert!(html.contains(r#"hx-post="/guilds/2/members/20/unverify""#));
+    assert!(
+        !html.contains(r#"hx-post="/guilds/2/members/21/unverify""#),
+        "nothing to remove from unverified members"
+    );
+}
+
+#[test]
+fn rules_page_renders_rules_and_rank_dropdown() {
+    let html = RulesPage {
+        shell: shell(),
+        guild: guild(2, "Test", None),
+        section: "rules",
+        section_title: "Role rules",
+        error: None,
+        rules: vec![RuleRow {
+            id: 5,
+            condition: "Hypixel rank is MVP+".to_owned(),
+            role: chip("MVP+"),
+        }],
+        roles: vec![role(11, "Verified", true)],
+        ranks: hypixel::RANKS,
+        hypixel_guild: Some("My Guild".to_owned()),
+        guild_ranks: vec!["Guild Master".to_owned(), "Officer".to_owned()],
+        guild_ranks_error: false,
+    }
+    .render()
+    .expect("template renders");
+
+    assert!(html.contains("/guilds/2/rules/5/delete"));
+    assert!(html.contains("--role-color: #3ba55d"));
+    assert!(html.contains(r#"<option value="Officer">Officer</option>"#));
+}
+
+#[test]
+fn nickname_page_renders_fields_and_preview() {
+    let format = NicknameFormat::default();
+    let html = NicknamePage {
+        shell: shell(),
+        guild: guild(2, "Test", None),
+        section: "nickname",
+        section_title: "Nickname",
+        error: None,
+        nickname_enabled: true,
+        nickname_separator: format.separator.clone(),
+        nickname_rows: NicknameRow::from_format(&format),
+        previews: previews(&format),
+    }
+    .render()
+    .expect("template renders");
+
+    assert!(html.contains(r#"name="hypixel_rank_prefix" value="[""#));
+    assert!(html.contains("[MVP+] Notch [OFC]"));
+    assert!(html.contains(r#"name="nickname_enabled" checked"#));
+}
+
+#[test]
+fn nickname_form_reorders_and_limits() {
+    let form: HashMap<String, String> = [
+        ("nickname_enabled", "on"),
+        ("separator", " "),
+        ("ign_enabled", "on"),
+        ("ign_position", "1"),
+        ("ign_importance", "1"),
+        ("hypixel_rank_enabled", "on"),
+        ("hypixel_rank_position", "2"),
+        ("hypixel_rank_prefix", "(((((((((((("),
+        ("hypixel_rank_suffix", ")"),
+        ("hypixel_rank_importance", "not a number"),
+    ]
+    .into_iter()
+    .map(|(key, value)| (key.to_owned(), value.to_owned()))
+    .collect();
+    let format = parse_nickname_form(&form);
+
+    assert!(format.enabled);
+    let order: Vec<_> = format
+        .segments
+        .iter()
+        .map(|segment| segment.field)
+        .collect();
+    assert!(order[..2] == [Field::Ign, Field::HypixelRank]);
+    assert_eq!(format.segments[1].prefix.len(), MAX_WRAPPING_LEN);
+    assert_eq!(format.segments[1].importance, 9);
+    assert!(!format.segments[2].enabled, "unchecked fields are disabled");
+}
