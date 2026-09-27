@@ -41,9 +41,9 @@ panel language comes from the `obot_lang` cookie set by the language picker, the
 account's language, then the browser's, then English. Commands reply in the language of the
 member's Discord client, and their descriptions are registered in every language.
 
-Sessions are kept in memory, so restarting the bot logs everyone out. Access to a server is
-checked against Discord on every request; only the server list in the side bar is cached, for a
-minute.
+Sessions are stored in the database, by a hash of their cookie, and last a week: restarts and
+updates keep everyone logged in. Access to a server is checked against Discord on every request;
+only the server list in the side bar is cached, for a minute.
 
 ## Hypixel API
 

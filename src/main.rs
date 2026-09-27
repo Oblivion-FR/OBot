@@ -148,6 +148,7 @@ async fn main() -> Result<(), Error> {
     }
 
     let panel = web::router(web::AppState {
+        sessions: web::Sessions(db.clone()),
         db,
         cache: client.cache.clone(),
         discord: client.http.clone(),
@@ -158,7 +159,6 @@ async fn main() -> Result<(), Error> {
             client_secret,
             public_url: panel_url.trim_end_matches('/').to_owned(),
         },
-        sessions: web::Sessions::default(),
         manageable_guilds: web::ManageableGuildsCache::default(),
         guild_members: web::GuildMembersCache::default(),
     });

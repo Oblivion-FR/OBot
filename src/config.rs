@@ -13,6 +13,21 @@ pub async fn connect(url: &str) -> Result<SqlitePool, Error> {
     Ok(pool)
 }
 
+/// A fresh database for tests. One connection that never closes: each connection to
+/// `:memory:` gets its own empty database.
+#[cfg(test)]
+pub async fn connect_in_memory() -> SqlitePool {
+    let pool = sqlx::sqlite::SqlitePoolOptions::new()
+        .max_connections(1)
+        .idle_timeout(None)
+        .max_lifetime(None)
+        .connect("sqlite::memory:")
+        .await
+        .expect("in-memory database opens");
+    sqlx::migrate!().run(&pool).await.expect("migrations apply");
+    pool
+}
+
 // SQLite has no unsigned integers, Discord IDs fit in an i64 bit for bit
 fn to_db(id: impl Into<u64>) -> i64 {
     id.into() as i64

@@ -6,12 +6,14 @@ use axum_extra::extract::CookieJar;
 use axum_extra::extract::cookie::{Cookie, SameSite};
 use poise::serenity_prelude as serenity;
 use serde::Deserialize;
-use std::collections::HashMap;
+use sha2::{Digest, Sha256};
+use sqlx::SqlitePool;
 use std::convert::Infallible;
-use std::sync::{Arc, Mutex};
-use std::time::{Duration, Instant};
+use std::sync::Arc;
+use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use super::{AppError, AppState};
+use crate::Error;
 use crate::i18n::Lang;
 
 const SESSION_COOKIE: &str = "obot_session";
@@ -29,48 +31,80 @@ pub struct User {
     pub lang: Option<Lang>,
 }
 
-struct Session {
-    user: User,
-    expires_at: Instant,
+/// Panel logins, in the database so restarts and updates don't log everyone out
+pub struct Sessions(pub SqlitePool);
+
+fn unix_now() -> i64 {
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map_or(0, |elapsed| elapsed.as_secs() as i64)
 }
 
-/// In memory, so a restart logs everyone out
-#[derive(Default)]
-pub struct Sessions(Mutex<HashMap<String, Session>>);
+fn hex(bytes: &[u8]) -> String {
+    bytes.iter().map(|byte| format!("{byte:02x}")).collect()
+}
+
+/// Sessions are stored and looked up by this, never by the token itself
+fn token_hash(token: &str) -> String {
+    hex(&Sha256::digest(token.as_bytes()))
+}
 
 impl Sessions {
-    fn create(&self, user: User) -> String {
+    async fn create(&self, user: &User) -> Result<String, Error> {
         let token = random_token();
-        let mut sessions = self.0.lock().unwrap_or_else(|e| e.into_inner());
-        let now = Instant::now();
-        sessions.retain(|_, session| session.expires_at > now);
-        sessions.insert(
-            token.clone(),
-            Session {
-                user,
-                expires_at: now + SESSION_TTL,
-            },
-        );
-        token
+        let now = unix_now();
+        sqlx::query("DELETE FROM session WHERE expires_at <= ?")
+            .bind(now)
+            .execute(&self.0)
+            .await?;
+        sqlx::query(
+            "INSERT INTO session (token_hash, user_id, name, avatar_url, lang, expires_at)
+             VALUES (?, ?, ?, ?, ?, ?)",
+        )
+        .bind(token_hash(&token))
+        .bind(user.id.get() as i64)
+        .bind(&user.name)
+        .bind(&user.avatar_url)
+        .bind(user.lang.map(Lang::code))
+        .bind(now + SESSION_TTL.as_secs() as i64)
+        .execute(&self.0)
+        .await?;
+        Ok(token)
     }
 
-    fn get(&self, token: &str) -> Option<User> {
-        let sessions = self.0.lock().unwrap_or_else(|e| e.into_inner());
-        sessions
-            .get(token)
-            .filter(|session| session.expires_at > Instant::now())
-            .map(|session| session.user.clone())
+    /// A database error counts as logged out, the panel shows its login page
+    async fn get(&self, token: &str) -> Option<User> {
+        let row: Option<(i64, String, String, Option<String>)> = sqlx::query_as(
+            "SELECT user_id, name, avatar_url, lang FROM session
+             WHERE token_hash = ? AND expires_at > ?",
+        )
+        .bind(token_hash(token))
+        .bind(unix_now())
+        .fetch_optional(&self.0)
+        .await
+        .inspect_err(|error| eprintln!("Could not read a session: {error}"))
+        .ok()?;
+        let (user_id, name, avatar_url, lang) = row?;
+        Some(User {
+            id: std::num::NonZeroU64::new(user_id as u64)?.into(),
+            name,
+            avatar_url,
+            lang: lang.as_deref().and_then(Lang::from_tag),
+        })
     }
 
-    fn remove(&self, token: &str) {
-        let mut sessions = self.0.lock().unwrap_or_else(|e| e.into_inner());
-        sessions.remove(token);
+    async fn remove(&self, token: &str) -> Result<(), Error> {
+        sqlx::query("DELETE FROM session WHERE token_hash = ?")
+            .bind(token_hash(token))
+            .execute(&self.0)
+            .await?;
+        Ok(())
     }
 }
 
 fn random_token() -> String {
     let bytes: [u8; 32] = rand::random();
-    bytes.iter().map(|byte| format!("{byte:02x}")).collect()
+    hex(&bytes)
 }
 
 pub struct OAuthConfig {
@@ -128,10 +162,14 @@ impl FromRequestParts<Arc<AppState>> for PanelLang {
         let picked = jar
             .get(LANG_COOKIE)
             .and_then(|cookie| Lang::from_tag(cookie.value()));
-        let account = || {
-            jar.get(SESSION_COOKIE)
-                .and_then(|cookie| state.sessions.get(cookie.value()))
-                .and_then(|user| user.lang)
+        // Only read the session when the language wasn't picked
+        let account = match (picked, jar.get(SESSION_COOKIE)) {
+            (None, Some(cookie)) => state
+                .sessions
+                .get(cookie.value())
+                .await
+                .and_then(|user| user.lang),
+            _ => None,
         };
         let browser = || {
             parts
@@ -141,7 +179,7 @@ impl FromRequestParts<Arc<AppState>> for PanelLang {
                 .and_then(|value| value.split(',').find_map(Lang::from_tag))
         };
         Ok(PanelLang(
-            picked.or_else(account).or_else(browser).unwrap_or_default(),
+            picked.or(account).or_else(browser).unwrap_or_default(),
         ))
     }
 }
@@ -187,9 +225,10 @@ impl FromRequestParts<Arc<AppState>> for MaybeLoggedIn {
         state: &Arc<AppState>,
     ) -> Result<Self, Self::Rejection> {
         let jar = CookieJar::from_headers(&parts.headers);
-        let user = jar
-            .get(SESSION_COOKIE)
-            .and_then(|cookie| state.sessions.get(cookie.value()));
+        let user = match jar.get(SESSION_COOKIE) {
+            Some(cookie) => state.sessions.get(cookie.value()).await,
+            None => None,
+        };
         Ok(MaybeLoggedIn(user))
     }
 }
@@ -296,22 +335,31 @@ pub async fn callback(
         .json()
         .await?;
 
-    let session = state.sessions.create(User {
-        id: discord_user.id,
-        avatar_url: discord_user.avatar_url(),
-        lang: discord_user.locale.as_deref().and_then(Lang::from_tag),
-        name: discord_user.global_name.unwrap_or(discord_user.username),
-    });
+    let session = state
+        .sessions
+        .create(&User {
+            id: discord_user.id,
+            avatar_url: discord_user.avatar_url(),
+            lang: discord_user.locale.as_deref().and_then(Lang::from_tag),
+            name: discord_user.global_name.unwrap_or(discord_user.username),
+        })
+        .await?;
     let jar = jar.add(oauth.cookie(SESSION_COOKIE, session));
     Ok((jar, Redirect::to("/")).into_response())
 }
 
-pub async fn logout(State(state): State<Arc<AppState>>, jar: CookieJar) -> impl IntoResponse {
+pub async fn logout(
+    State(state): State<Arc<AppState>>,
+    jar: CookieJar,
+) -> Result<impl IntoResponse, AppError> {
     if let Some(cookie) = jar.get(SESSION_COOKIE) {
-        state.sessions.remove(cookie.value());
+        state.sessions.remove(cookie.value()).await?;
     }
-    (
+    Ok((
         jar.remove(Cookie::build(SESSION_COOKIE).path("/")),
         Redirect::to("/"),
-    )
+    ))
 }
+
+#[cfg(test)]
+mod tests;
