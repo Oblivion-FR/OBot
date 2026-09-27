@@ -12,7 +12,7 @@ use super::auth::{LoggedIn, MaybeLoggedIn, User};
 use super::members::{self, MembersTable};
 use super::{Access, AppError, AppState, GuildSummary, RoleChip, RoleOption, Shell};
 use crate::config::{self, HypixelGuildLink, RuleKind};
-use crate::hypixel::{self, GuildQuery};
+use crate::hypixel;
 use crate::nickname::{self, Field, NicknameFormat};
 
 fn render(template: impl Template) -> Result<Response, AppError> {
@@ -262,19 +262,12 @@ pub async fn save_hypixel_guild(
     let link = if name.is_empty() {
         None
     } else {
-        let query = GuildQuery::Name(name);
-        match hypixel::fetch_guild(&state.http_client, &state.hypixel_api_key, query).await? {
+        match state.hypixel.guild_by_name(name).await? {
             // Store the ID, it survives guild renames
-            Some(guild) => {
-                let link = HypixelGuildLink {
-                    id: guild.id.clone(),
-                    name: guild.name.clone(),
-                };
-                state
-                    .hypixel_guilds
-                    .insert(guild.id.clone(), Some(Arc::new(guild)));
-                Some(link)
-            }
+            Some(guild) => Some(HypixelGuildLink {
+                id: guild.id.clone(),
+                name: guild.name.clone(),
+            }),
             None => {
                 return Ok(section_redirect(
                     guild_id,

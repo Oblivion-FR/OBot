@@ -1,6 +1,10 @@
+mod client;
+mod limit;
+
 use serde::Deserialize;
 
 use crate::Error;
+pub use client::Hypixel;
 
 #[derive(Deserialize)]
 pub struct MojangProfile {
@@ -90,6 +94,7 @@ struct Links {
     discord: Option<String>,
 }
 
+#[derive(Clone)]
 pub struct Player {
     /// The Discord account linked in the Hypixel social menu
     pub discord: Option<String>,
@@ -114,29 +119,16 @@ impl RawPlayer {
     }
 }
 
-/// Fetches a player's Hypixel profile, `None` if they never joined Hypixel.
-pub async fn fetch_player(
-    http: &reqwest::Client,
-    api_key: &str,
-    uuid: &str,
-) -> Result<Option<Player>, Error> {
-    let response: PlayerResponse = http
-        .get("https://api.hypixel.net/v2/player")
-        .query(&[("uuid", uuid)])
-        .header("API-Key", api_key)
-        .send()
-        .await?
-        .error_for_status()?
-        .json()
-        .await?;
-
-    Ok(response.player.map(|player| Player {
-        rank: player.rank(),
-        discord: player
-            .social_media
-            .and_then(|social_media| social_media.links)
-            .and_then(|links| links.discord),
-    }))
+impl From<RawPlayer> for Player {
+    fn from(player: RawPlayer) -> Self {
+        Self {
+            rank: player.rank(),
+            discord: player
+                .social_media
+                .and_then(|social_media| social_media.links)
+                .and_then(|links| links.discord),
+        }
+    }
 }
 
 #[derive(Deserialize)]
@@ -228,34 +220,6 @@ impl Guild {
             .and_then(|candidate| candidate.tag.as_deref())
             .filter(|tag| !tag.is_empty())
     }
-}
-
-pub enum GuildQuery<'a> {
-    Id(&'a str),
-    Name(&'a str),
-    Player(&'a str),
-}
-
-pub async fn fetch_guild(
-    http: &reqwest::Client,
-    api_key: &str,
-    query: GuildQuery<'_>,
-) -> Result<Option<Guild>, Error> {
-    let param = match query {
-        GuildQuery::Id(id) => ("id", id),
-        GuildQuery::Name(name) => ("name", name),
-        GuildQuery::Player(uuid) => ("player", uuid),
-    };
-    let response: GuildResponse = http
-        .get("https://api.hypixel.net/v2/guild")
-        .query(&[param])
-        .header("API-Key", api_key)
-        .send()
-        .await?
-        .error_for_status()?
-        .json()
-        .await?;
-    Ok(response.guild)
 }
 
 #[cfg(test)]

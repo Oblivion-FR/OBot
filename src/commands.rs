@@ -47,8 +47,7 @@ pub async fn verify(
         return Ok(());
     };
 
-    let Some(player) =
-        hypixel::fetch_player(&data.http, &data.hypixel_api_key, &profile.id).await?
+    let Some(player) = verification::player_for_proof(&data.hypixel, &profile.id, author).await?
     else {
         ctx.say(format!("`{}` has never joined Hypixel.", profile.name))
             .await?;
@@ -81,8 +80,7 @@ pub async fn verify(
     };
     let services = Services {
         db: &data.db,
-        http: &data.http,
-        hypixel_api_key: &data.hypixel_api_key,
+        hypixel: &data.hypixel,
         discord: ctx.http(),
         cache: ctx.cache(),
     };

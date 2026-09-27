@@ -4,14 +4,13 @@ use std::collections::BTreeSet;
 
 use crate::Error;
 use crate::config::{self, RuleKind};
-use crate::hypixel::{self, GuildQuery, MojangProfile, Player};
+use crate::hypixel::{self, Hypixel, MojangProfile, Player};
 use crate::nickname;
 
 /// What syncing a member needs, shared by `/verify` and the panel
 pub struct Services<'a> {
     pub db: &'a SqlitePool,
-    pub http: &'a reqwest::Client,
-    pub hypixel_api_key: &'a str,
+    pub hypixel: &'a Hypixel,
     pub discord: &'a serenity::Http,
     pub cache: &'a serenity::Cache,
 }
@@ -21,6 +20,25 @@ pub struct Services<'a> {
 pub fn is_same_user(user: &serenity::User, linked: &str) -> bool {
     let linked = linked.trim();
     linked.eq_ignore_ascii_case(&user.name) || linked.eq_ignore_ascii_case(&user.tag())
+}
+
+/// The player's profile, as long as it shows the ownership proof. A cached profile is only used
+/// when it proves the link, otherwise it's fetched again: after a failed attempt the player may
+/// have just linked their Discord in game. `None` if they never joined Hypixel.
+pub async fn player_for_proof(
+    hypixel: &Hypixel,
+    uuid: &str,
+    user: &serenity::User,
+) -> Result<Option<Player>, Error> {
+    if let Some(Some(player)) = hypixel.cached_player(uuid)
+        && player
+            .discord
+            .as_deref()
+            .is_some_and(|linked| is_same_user(user, linked))
+    {
+        return Ok(Some(player));
+    }
+    hypixel.player(uuid).await
 }
 
 pub enum NicknameChange {
@@ -92,10 +110,10 @@ pub async fn sync_member(
     // Only the linked Hypixel guild counts, being in another one is the same as being in none
     let player_guild = match hypixel_guild_id {
         Some(linked_id) if needs_guild => {
-            let query = GuildQuery::Player(&profile.id);
-            hypixel::fetch_guild(services.http, services.hypixel_api_key, query)
+            services
+                .hypixel
+                .guild_with_member(linked_id, &profile.id)
                 .await?
-                .filter(|guild| guild.id == linked_id)
         }
         _ => None,
     };

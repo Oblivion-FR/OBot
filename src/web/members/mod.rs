@@ -77,8 +77,7 @@ impl AppState {
     fn services(&self) -> verification::Services<'_> {
         verification::Services {
             db: &self.db,
-            http: &self.http_client,
-            hypixel_api_key: &self.hypixel_api_key,
+            hypixel: &self.hypixel,
             discord: &self.discord,
             cache: &self.cache,
         }
@@ -385,7 +384,7 @@ impl AppState {
         let Some(link) = &config.hypixel_guild else {
             return Err("Link a Hypixel guild to fill the guild columns.");
         };
-        match self.hypixel_guild(&link.id).await {
+        match self.hypixel.guild(&link.id).await {
             Ok(guild) => Ok(guild),
             Err(error) => {
                 eprintln!("Could not load Hypixel guild {}: {error}", link.id);
@@ -678,13 +677,12 @@ pub async fn reverify(
         return row_for(&state, access.guild_id, &member, &config, notice).await;
     };
 
-    // The stored link was proven when it was made, so it isn't checked again
-    let player = hypixel::fetch_player(&state.http_client, &state.hypixel_api_key, &profile.id)
-        .await?
-        .unwrap_or(Player {
-            discord: None,
-            rank: None,
-        });
+    // The stored link was proven when it was made, so it isn't checked again. An admin asking
+    // to re-verify wants current data, so the profile is always fetched live.
+    let player = state.hypixel.player(&profile.id).await?.unwrap_or(Player {
+        discord: None,
+        rank: None,
+    });
     let notice = match run_sync(
         &state,
         &access,
@@ -741,7 +739,7 @@ pub async fn admin_verify(
         )));
     };
     let Some(player) =
-        hypixel::fetch_player(&state.http_client, &state.hypixel_api_key, &profile.id).await?
+        verification::player_for_proof(&state.hypixel, &profile.id, &member.user).await?
     else {
         return Ok(refused(format!(
             "{} has never joined Hypixel.",

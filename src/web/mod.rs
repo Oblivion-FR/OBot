@@ -10,14 +10,12 @@ use axum::response::{IntoResponse, Redirect, Response};
 use axum::routing::{get, post};
 use poise::serenity_prelude as serenity;
 use sqlx::SqlitePool;
-use std::collections::HashMap;
-use std::hash::Hash;
 use std::num::NonZeroU64;
-use std::sync::{Arc, Mutex};
-use std::time::{Duration, Instant};
+use std::sync::Arc;
 
 use crate::Error;
-use crate::hypixel::{self, GuildQuery};
+use crate::cache::TtlCache;
+use crate::hypixel::Hypixel;
 use auth::User;
 pub use auth::{OAuthConfig, Sessions};
 
@@ -26,47 +24,13 @@ pub struct AppState {
     pub cache: Arc<serenity::Cache>,
     pub discord: Arc<serenity::Http>,
     pub http_client: reqwest::Client,
-    pub hypixel_api_key: String,
+    pub hypixel: Arc<Hypixel>,
     pub oauth: OAuthConfig,
     pub sessions: Sessions,
-    pub hypixel_guilds: HypixelGuildCache,
     pub manageable_guilds: ManageableGuildsCache,
     pub guild_members: GuildMembersCache,
 }
 
-/// Values kept `SECS` seconds, so page loads don't hammer the Discord and Hypixel APIs
-pub struct TtlCache<K, V, const SECS: u64>(Mutex<HashMap<K, (Instant, V)>>);
-
-impl<K, V, const SECS: u64> Default for TtlCache<K, V, SECS> {
-    fn default() -> Self {
-        Self(Mutex::default())
-    }
-}
-
-impl<K: Hash + Eq, V: Clone, const SECS: u64> TtlCache<K, V, SECS> {
-    fn get(&self, key: &K) -> Option<V> {
-        let cache = self.0.lock().unwrap_or_else(|e| e.into_inner());
-        cache
-            .get(key)
-            .filter(|(stored_at, _)| stored_at.elapsed() < Duration::from_secs(SECS))
-            .map(|(_, value)| value.clone())
-    }
-
-    fn insert(&self, key: K, value: V) {
-        let mut cache = self.0.lock().unwrap_or_else(|e| e.into_inner());
-        cache.retain(|_, (stored_at, _)| stored_at.elapsed() < Duration::from_secs(SECS));
-        cache.insert(key, (Instant::now(), value));
-    }
-
-    fn remove(&self, key: &K) {
-        let mut cache = self.0.lock().unwrap_or_else(|e| e.into_inner());
-        cache.remove(key);
-    }
-}
-
-/// Hypixel guilds by ID, `None` for a disbanded guild. Their ranks, members and XP only change
-/// slowly, and the Hypixel API is rate limited.
-pub type HypixelGuildCache = TtlCache<String, Option<Arc<hypixel::Guild>>, 300>;
 /// Guilds listed in a user's server rail. Only navigation: each guild page still checks access live
 pub type ManageableGuildsCache = TtlCache<serenity::UserId, Vec<serenity::GuildId>, 60>;
 /// Member list shown in the verification page, dropped when an action changes someone's roles
@@ -317,26 +281,11 @@ impl AppState {
         )
     }
 
-    async fn hypixel_guild(
-        &self,
-        hypixel_guild_id: &str,
-    ) -> Result<Option<Arc<hypixel::Guild>>, Error> {
-        if let Some(guild) = self.hypixel_guilds.get(&hypixel_guild_id.to_owned()) {
-            return Ok(guild);
-        }
-        let query = GuildQuery::Id(hypixel_guild_id);
-        let guild = hypixel::fetch_guild(&self.http_client, &self.hypixel_api_key, query)
-            .await?
-            .map(Arc::new);
-        self.hypixel_guilds
-            .insert(hypixel_guild_id.to_owned(), guild.clone());
-        Ok(guild)
-    }
-
     async fn guild_rank_names(&self, hypixel_guild_id: &str) -> Result<Vec<String>, Error> {
         // A disbanded guild has no ranks left to pick
         Ok(self
-            .hypixel_guild(hypixel_guild_id)
+            .hypixel
+            .guild(hypixel_guild_id)
             .await?
             .map(|guild| guild.rank_names())
             .unwrap_or_default())

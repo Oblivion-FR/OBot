@@ -1,3 +1,4 @@
+mod cache;
 mod commands;
 mod config;
 mod hypixel;
@@ -8,6 +9,7 @@ mod web;
 use poise::serenity_prelude as serenity;
 use std::env::var;
 use std::num::NonZeroU64;
+use std::sync::Arc;
 
 type Error = Box<dyn std::error::Error + Send + Sync>;
 type Context<'a> = poise::Context<'a, Data, Error>;
@@ -15,7 +17,7 @@ type Context<'a> = poise::Context<'a, Data, Error>;
 pub struct Data {
     db: sqlx::SqlitePool,
     http: reqwest::Client,
-    hypixel_api_key: String,
+    hypixel: Arc<hypixel::Hypixel>,
 }
 
 fn required_env(name: &str) -> Result<String, Error> {
@@ -50,6 +52,7 @@ async fn main() -> Result<(), Error> {
 
     let db = config::connect(&database_url).await?;
     let http = reqwest::Client::new();
+    let hypixel = Arc::new(hypixel::Hypixel::new(http.clone(), hypixel_api_key));
 
     let framework = poise::Framework::builder()
         .options(poise::FrameworkOptions {
@@ -57,7 +60,7 @@ async fn main() -> Result<(), Error> {
             ..Default::default()
         })
         .setup({
-            let (db, http, hypixel_api_key) = (db.clone(), http.clone(), hypixel_api_key.clone());
+            let (db, http, hypixel) = (db.clone(), http.clone(), hypixel.clone());
             move |ctx, ready, framework| {
                 Box::pin(async move {
                     println!("Logged in as {}", ready.user.name);
@@ -69,11 +72,7 @@ async fn main() -> Result<(), Error> {
                         }
                         None => poise::builtins::register_globally(ctx, commands).await?,
                     }
-                    Ok(Data {
-                        db,
-                        http,
-                        hypixel_api_key,
-                    })
+                    Ok(Data { db, http, hypixel })
                 })
             }
         })
@@ -89,14 +88,13 @@ async fn main() -> Result<(), Error> {
         cache: client.cache.clone(),
         discord: client.http.clone(),
         http_client: http,
-        hypixel_api_key,
+        hypixel,
         oauth: web::OAuthConfig {
             client_id: client.http.get_current_application_info().await?.id,
             client_secret,
             public_url: panel_url.trim_end_matches('/').to_owned(),
         },
         sessions: web::Sessions::default(),
-        hypixel_guilds: web::HypixelGuildCache::default(),
         manageable_guilds: web::ManageableGuildsCache::default(),
         guild_members: web::GuildMembersCache::default(),
     });
