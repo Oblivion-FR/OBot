@@ -1,0 +1,71 @@
+{% extends "shell.html" %}
+{% block title %}{{ lang.t("data-requests") }} · OBot{% endblock %}
+{% block app_class %} no-sidebar{% endblock %}
+{% block topbar_title %}<strong>{{ lang.t("data-requests") }}</strong>{% endblock %}
+{% block content %}
+<div class="page-header">
+  <h1>{{ lang.t("data-requests") }}</h1>
+  <p>{{ lang.t("data-requests-intro") }}</p>
+</div>
+
+{% if let Some(erased) = erased %}
+<div class="alert ok" role="status">{{ erased }}</div>
+{% endif %}
+
+<div class="stack">
+  <form class="card" method="get" action="/data">
+    <div class="card-header">
+      <div>
+        <h2>{{ lang.t("data-search") }}</h2>
+        <p class="hint">{{ lang.t("data-search-hint") }}</p>
+      </div>
+    </div>
+    <label class="field">{{ lang.t("data-search") }}
+      <input type="search" name="q" value="{{ query }}" placeholder="{{ lang.t("data-search-placeholder") }}" required>
+    </label>
+    <div class="card-footer"><button class="btn" type="submit">{{ lang.t("data-search") }}</button></div>
+  </form>
+
+  {% if let Some(people) = people %}
+  {% for person in people %}
+  <section class="card">
+    <div class="card-header">
+      <div>
+        <h2>{% if let Some(name) = person.name %}{{ name }}{% else %}{{ lang.t("data-unknown-user") }}{% endif %}</h2>
+        <p class="hint"><code>{{ person.id }}</code> · {{ lang.t1("data-person-sessions", "count", person.sessions) }} · {{ lang.t1("data-person-verified-by-them", "count", person.verified_by_them) }}</p>
+      </div>
+    </div>
+    {% if person.verifications.is_empty() %}
+    <p class="hint">{{ lang.t("data-person-none") }}</p>
+    {% else %}
+    <div class="table-scroll">
+      <table class="segments">
+        <thead>
+          <tr><th>{{ lang.t("data-column-server") }}</th><th>{{ lang.t("data-column-account") }}</th><th>{{ lang.t("data-column-date") }}</th><th>{{ lang.t("data-column-by") }}</th></tr>
+        </thead>
+        <tbody>
+          {% for row in person.verifications %}
+          <tr>
+            <td>{{ row.guild }}</td>
+            <td><code>{{ row.minecraft_name }}</code> <span class="hint">{{ row.minecraft_uuid }}</span></td>
+            <td class="hint">{{ row.verified_on }}</td>
+            <td class="hint">{% if let Some(admin) = row.by %}<code>{{ admin }}</code>{% else %}{{ lang.t("data-by-self") }}{% endif %}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% endif %}
+    <form method="post" action="/data/erase" hx-confirm="{{ lang.t1("data-erase-confirm", "user", person.id.to_string()) }}">
+      <input type="hidden" name="user_id" value="{{ person.id }}">
+      <input type="hidden" name="q" value="{{ query }}">
+      <p class="hint">{{ lang.t("data-erase-hint") }}</p>
+      <div class="card-footer"><button class="btn danger" type="submit">{{ lang.t("data-erase") }}</button></div>
+    </form>
+  </section>
+  {% else %}
+  <p class="empty">{{ lang.t1("data-no-results", "query", query.as_str()) }}</p>
+  {% endfor %}
+  {% endif %}
+</div>
+{% endblock %}

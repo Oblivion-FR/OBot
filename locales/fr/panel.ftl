@@ -284,3 +284,25 @@ verify-button-channel = Salon
 post-verify-message = Publier le message
 notice-verify-message-posted = Le message de vérification a été publié.
 error-post-failed = Discord a refusé le message, vérifie les permissions du bot dans ce salon.
+
+## Demandes RGPD, réservées aux admins confidentialité de l'instance (PRIVACY_ADMIN_IDS)
+
+data-requests = Demandes RGPD
+data-requests-intro = Retrouve tout ce qu'OBot enregistre sur une personne, sur tous les serveurs, et efface-le à sa demande (droits d'accès et à l'effacement du RGPD).
+data-search = Rechercher
+data-search-placeholder = ID Discord, pseudo ou UUID Minecraft
+data-search-hint = Les ID Discord et les UUID Minecraft doivent correspondre exactement ; les pseudos Minecraft et les noms du panel, en partie.
+data-no-results = Rien d'enregistré ne correspond à « { $query } ».
+data-unknown-user = Utilisateur Discord inconnu
+data-person-sessions = Sessions du panel : { $count }
+data-person-verified-by-them = Membres vérifiés en tant qu'admin : { $count }
+data-person-none = Aucune vérification.
+data-column-server = Serveur
+data-column-account = Compte Minecraft
+data-column-date = Vérifié le
+data-column-by = Vérifié par
+data-by-self = Lui-même
+data-erase = Effacer toutes ses données
+data-erase-hint = Supprime ses vérifications et ses sessions du panel, et retire son ID des vérifications qu'il a faites en tant qu'admin. Ses rôles et son pseudo sur Discord, et les messages déjà publiés dans les salons de logs, restent : ils appartiennent à chaque serveur.
+data-erase-confirm = Effacer toutes les données de { $user } ? C'est irréversible.
+notice-data-erased = Données de { $user } effacées : vérifications : { $verifications }, sessions : { $sessions }, mentions en tant qu'admin : { $admin }.

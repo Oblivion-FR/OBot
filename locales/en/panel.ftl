@@ -277,3 +277,25 @@ verify-button-channel = Channel
 post-verify-message = Post the message
 notice-verify-message-posted = The verify message was posted.
 error-post-failed = Discord refused the message, check the bot's permissions in this channel.
+
+## Data requests, only for the instance's privacy admins (PRIVACY_ADMIN_IDS)
+
+data-requests = Data requests
+data-requests-intro = Find everything OBot stores about a person, in every server, and erase it when they ask (GDPR rights of access and to erasure).
+data-search = Search
+data-search-placeholder = Discord ID, Minecraft username or UUID
+data-search-hint = Discord IDs and Minecraft UUIDs match exactly; Minecraft usernames and panel names match partially.
+data-no-results = Nothing stored matches “{ $query }”.
+data-unknown-user = Unknown Discord user
+data-person-sessions = Panel sessions: { $count }
+data-person-verified-by-them = Members verified as an admin: { $count }
+data-person-none = No verification.
+data-column-server = Server
+data-column-account = Minecraft account
+data-column-date = Verified on
+data-column-by = Verified by
+data-by-self = Themselves
+data-erase = Erase all their data
+data-erase-hint = Deletes their verifications and panel sessions, and removes their ID from verifications they made as an admin. Their roles and nickname on Discord, and messages already posted in log channels, stay: those belong to each server.
+data-erase-confirm = Erase all data about { $user }? This can't be undone.
+notice-data-erased = Erased the data of { $user }: verifications: { $verifications }, sessions: { $sessions }, admin mentions: { $admin }.

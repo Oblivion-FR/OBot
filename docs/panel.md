@@ -17,6 +17,20 @@ on that browser. Slash command replies follow the language of each member's Disc
 What OBot posts in the server, like the log channel, uses the server language picked in
 **Messages**.
 
+## Data requests
+
+The Discord accounts listed in `PRIVACY_ADMIN_IDS` get a shield button in the top bar. It opens
+a page, hidden from everyone else, to answer GDPR requests across every server:
+
+- **Search** by Discord ID, Minecraft username or UUID, or panel name, to see everything OBot
+  stores about a person: their verifications in each server, panel sessions, and members they
+  verified as an admin.
+- **Erase all their data** deletes their verifications and sessions, and removes their ID from
+  the verifications they made as an admin. It can't be undone. Their Discord roles and nickname,
+  and messages in log channels, belong to each server and stay.
+
+Each erasure is printed in the bot's logs, with who made it, to account for the request.
+
 ## How verification works
 
 A member runs `/verify <minecraft name>`. OBot checks that the Discord account linked in that

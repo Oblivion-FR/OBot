@@ -14,6 +14,7 @@ fn shell() -> Shell {
         ],
         current: Some(serenity::GuildId::new(2)),
         invite_url: "https://discord.com/oauth2/authorize?client_id=9".to_owned(),
+        privacy_admin: false,
     }
 }
 

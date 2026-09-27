@@ -19,6 +19,7 @@
     <header class="topbar">
       <div class="topbar-title">{% block topbar_title %}{% endblock %}</div>
       <div class="topbar-actions">
+        {% if shell.privacy_admin %}<a class="icon-button" href="/data" title="{{ lang.t("data-requests") }}" aria-label="{{ lang.t("data-requests") }}">{% call icons::shield() %}{% endcall %}</a>{% endif %}
         {% include "lang_picker.html" %}
         <form method="post" action="/logout" class="user-menu">
           <img class="avatar" src="{{ shell.user.avatar_url }}" alt="">

@@ -76,6 +76,7 @@ async fn main() -> Result<(), Error> {
         .map(|id| parse_id("GUILD_ID", &id).map(serenity::GuildId::from))
         .transpose()?;
     let resync_every = resync::interval(optional_env("RESYNC_INTERVAL_HOURS"))?;
+    let privacy_admins = web::parse_admin_ids(optional_env("PRIVACY_ADMIN_IDS").as_deref())?;
     i18n::check()?;
 
     let db = config::connect(&database_url).await?;
@@ -171,6 +172,7 @@ async fn main() -> Result<(), Error> {
         },
         manageable_guilds: web::ManageableGuildsCache::default(),
         guild_members: web::GuildMembersCache::default(),
+        privacy_admins,
     });
     let listener = tokio::net::TcpListener::bind(&panel_bind).await?;
     println!("Panel listening on {panel_url}");

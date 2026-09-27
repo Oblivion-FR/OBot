@@ -27,6 +27,7 @@ cache and HTTP client, and the Hypixel client.
 | [`web`](../src/web/mod.rs)                     | Panel router, shared state, access checks                                                 |
 | [`web::auth`](../src/web/auth/mod.rs)          | Discord OAuth2 login and sessions                                                         |
 | [`web::pages`](../src/web/pages/mod.rs)        | Panel pages and their forms                                                               |
+| [`web::privacy`](../src/web/privacy/mod.rs)    | Data requests: search and erase a person's data, for `PRIVACY_ADMIN_IDS`                  |
 | [`web::members`](../src/web/members/mod.rs)    | Member table and member actions (re-verify, verify, remove)                               |
 
 ## Web panel

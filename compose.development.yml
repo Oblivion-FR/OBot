@@ -25,6 +25,8 @@ services:
       GUILD_ID: ${GUILD_ID:-}
       # Hours between refreshes of every verified member, 3 by default, 0 turns them off
       RESYNC_INTERVAL_HOURS: ${RESYNC_INTERVAL_HOURS:-}
+      # Discord user IDs, comma separated, who handle GDPR requests in the panel. Empty: nobody
+      PRIVACY_ADMIN_IDS: ${PRIVACY_ADMIN_IDS:-}
     ports:
       # Next to production's 8081, so both can run on the same host
       - ${PANEL_PORT:-8082}:8081

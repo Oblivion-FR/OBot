@@ -71,6 +71,8 @@ the files it read.
 |                         |          |                       | `0` turns them off                                             |
 | `GUILD_ID`              | no       |                       | Register slash commands in this server only, which is instant. |
 |                         |          |                       | Handy while developing, leave empty in production              |
+| `PRIVACY_ADMIN_IDS`     | no       |                       | Discord user IDs, comma separated, who handle GDPR requests:   |
+|                         |          |                       | see [Data requests](panel.md#data-requests)                    |
 
 `PANEL_URL` must match how people reach the panel (domain, `https`, port): it's used for the
 login redirect, and panel forms posted from any other origin are rejected.

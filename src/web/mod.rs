@@ -1,6 +1,7 @@
 mod auth;
 mod members;
 mod pages;
+mod privacy;
 
 use axum::Router;
 use axum::extract::{Request, State};
@@ -18,6 +19,7 @@ use crate::cache::TtlCache;
 use crate::hypixel::Hypixel;
 use auth::User;
 pub use auth::{OAuthConfig, Sessions};
+pub use privacy::parse_admin_ids;
 
 pub struct AppState {
     pub db: SqlitePool,
@@ -29,6 +31,8 @@ pub struct AppState {
     pub sessions: Sessions,
     pub manageable_guilds: ManageableGuildsCache,
     pub guild_members: GuildMembersCache,
+    /// Who can see and erase everything stored about a person, from `PRIVACY_ADMIN_IDS`
+    pub privacy_admins: Vec<serenity::UserId>,
 }
 
 /// Guilds listed in a user's server rail. Only navigation: each guild page still checks access live
@@ -44,6 +48,8 @@ pub fn router(state: AppState) -> Router {
         .route("/callback", get(auth::callback))
         .route("/logout", post(auth::logout))
         .route("/lang", post(auth::set_lang))
+        .route("/data", get(privacy::page))
+        .route("/data/erase", post(privacy::erase_person))
         .route("/static/app.css", get(stylesheet))
         .route("/static/app.js", get(script))
         .route("/guilds/{guild_id}", get(pages::overview))
@@ -190,6 +196,8 @@ struct Shell {
     guilds: Vec<GuildSummary>,
     current: Option<serenity::GuildId>,
     invite_url: String,
+    /// Shows the link to data requests
+    privacy_admin: bool,
 }
 
 struct RoleOption {
@@ -285,6 +293,7 @@ impl AppState {
             .collect();
         guilds.sort_by_key(|guild| guild.name.to_lowercase());
         Shell {
+            privacy_admin: self.privacy_admins.contains(&user.id),
             user,
             guilds,
             current,

@@ -114,7 +114,7 @@ pub struct MemberRow {
     pub(super) notice: Option<Notice>,
 }
 
-fn date_label(seconds: Option<i64>) -> String {
+pub(super) fn date_label(seconds: Option<i64>) -> String {
     seconds
         .and_then(|seconds| serenity::Timestamp::from_unix_timestamp(seconds).ok())
         .map(|date| date.to_string().chars().take(10).collect())
