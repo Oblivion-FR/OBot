@@ -1,14 +1,14 @@
-# Production bot. In Portainer: Stacks → Add stack → Repository, compose path
-# `compose.production.yml`, and set the variables below in the stack's environment variables.
-# Locally: `docker compose -f compose.production.yml --env-file .env.production up -d --build`
+# Production bot, pulled from the GitHub container registry where CI publishes it. In Portainer:
+# Stacks → Add stack → Repository, compose path `compose.production.yml`, and set the variables
+# below in the stack's environment variables.
+# Locally: `docker compose -f compose.production.yml --env-file .env.production up -d`
 name: obot-production
 
 services:
   obot:
-    build:
-      context: .
-      dockerfile: Dockerfile.production
-    image: obot:production
+    # `production` follows `main`; set OBOT_TAG to `production-<commit>` to pin or roll back
+    image: ghcr.io/oblivion-fr/obot:${OBOT_TAG:-production}
+    pull_policy: always
     restart: unless-stopped
     environment:
       OBOT_ENV: production
@@ -25,6 +25,6 @@ services:
       - data:/data
 
 volumes:
-  # The SQLite database, kept apart from the container so it survives rebuilds and updates
+  # The SQLite database, kept apart from the container so it survives updates
   data:
     name: obot-production-data

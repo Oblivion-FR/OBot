@@ -12,21 +12,24 @@ commands update instantly) in `.env.development`, which `cargo run` reads over `
 The bot can also run in Docker, one stack per environment. In short:
 
 - **Development** (`compose.development.yml`, `Dockerfile.development`): a debug build under a
-  file watcher that rebuilds and restarts the bot on every change. Run it with hot reload:
+  file watcher that rebuilds and restarts the bot on every change. Run it locally with hot
+  reload, which builds the image from your sources:
 
   ```sh
-  docker compose -f compose.development.yml --env-file .env.development watch
+  docker compose -f compose.development.yml -f compose.development.watch.yml --env-file .env.development watch
   ```
 
 - **Production** (`compose.production.yml`, `Dockerfile.production`): an optimized release
   build in a small image.
 - Each stack has its own panel port (`8082` for development, `8081` for production) and its own
   database volume, so both can run on the same host.
-- Deployed stacks run in Portainer, which builds the image from the repository and sets the
-  variables: nothing secret goes in the images or the repository.
+- On every push to `main`, GitHub Actions runs the checks, then builds both images and publishes
+  them to `ghcr.io/oblivion-fr/obot`. Pull requests build them without publishing.
+- Deployed stacks run in Portainer, which pulls those images and sets the variables: nothing
+  secret goes in the images or the repository.
 
-[deployment.md](deployment.md) covers the variables, the Portainer setup and why edits are
-synced into the development container instead of shared through a bind mount.
+[deployment.md](deployment.md) covers the image tags, the variables, the Portainer setup and why
+edits are synced into the development container instead of shared through a bind mount.
 
 ## Checks
 

@@ -1,0 +1,34 @@
+# Local hot reload, added on top of compose.development.yml:
+# `docker compose -f compose.development.yml -f compose.development.watch.yml --env-file .env.development watch`
+#
+# Builds the development image from the local sources instead of pulling it, then copies every
+# change into the container, where the file watcher rebuilds and restarts the bot. Changes are
+# copied rather than shared through a bind mount, because Docker Desktop doesn't reliably forward
+# file change events from Windows hosts.
+services:
+  obot:
+    image: obot:development-local
+    pull_policy: build
+    build:
+      context: .
+      dockerfile: Dockerfile.development
+    develop:
+      watch:
+        - action: sync
+          path: ./src
+          target: /app/src
+        - action: sync
+          path: ./templates
+          target: /app/templates
+        - action: sync
+          path: ./static
+          target: /app/static
+        - action: sync
+          path: ./migrations
+          target: /app/migrations
+        - action: sync
+          path: ./Cargo.toml
+          target: /app/Cargo.toml
+        - action: sync
+          path: ./Cargo.lock
+          target: /app/Cargo.lock
