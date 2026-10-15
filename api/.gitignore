@@ -1,0 +1,11 @@
+/target
+
+# Secrets
+.env
+.env.*
+!.env.example
+
+# Local database
+*.db
+*.db-shm
+*.db-wal

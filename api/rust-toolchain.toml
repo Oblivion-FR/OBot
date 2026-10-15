@@ -1,0 +1,5 @@
+# The Rust release used to build the API, locally and in CI. Same release as the monolith on main.
+[toolchain]
+channel = "1.98.1"
+components = ["rustfmt", "clippy"]
+profile = "minimal"
